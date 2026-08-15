@@ -98,7 +98,7 @@ model User {
   passwordHash              String
   name                      String
   timezone                  String    @default("Asia/Kolkata")
-  taxSlabPercent            Decimal   @db.Decimal(6, 3)
+  taxSlabPercent            Decimal   @default(30) @db.Decimal(6, 3)
   taxRegime                 TaxRegime @default(NEW)
   salaryDayOfMonth          Int?
   emergencyFundTargetMonths Int       @default(6)
