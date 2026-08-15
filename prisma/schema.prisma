@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TaxRegime {
+  OLD
+  NEW
+}
+
+enum AccountType {
+  SAVINGS
+  CURRENT
+  CASH
+  WALLET
+}
+
+enum AssetType {
+  EQUITY
+  MUTUAL_FUND
+  ETF
+  BOND
+  FD
+  RD
+  EPF
+  PPF
+  NPS
+  GOLD_PHYSICAL
+  GOLD_DIGITAL
+  SGB
+  REAL_ESTATE
+  VEHICLE
+  CRYPTO
+  OTHER
+}
+
+enum LiabilityType {
+  HOME_LOAN
+  PERSONAL_LOAN
+  CAR_LOAN
+  EDUCATION_LOAN
+  CREDIT_CARD
+  BNPL
+  INFORMAL
+  OTHER
+}
+
+enum PrepaymentMode {
+  REDUCE_TENURE
+  REDUCE_EMI
+}
+
+enum CommitmentDirection {
+  INFLOW
+  OUTFLOW
+}
+
+enum CommitmentCategory {
+  SALARY
+  RENT
+  EMI
+  SIP
+  INSURANCE
+  UTILITY
+  SUBSCRIPTION
+  CREDIT_CARD_BILL
+  TAX
+  OTHER
+}
+
+enum CommitmentFrequency {
+  ONE_TIME
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  ANNUAL
+}
+
+enum VariableSpendSource {
+  USER_ESTIMATE
+  DERIVED
+}
+
+enum ScenarioType {
+  PREPAY_VS_INVEST
+  AFFORDABILITY
+  INCOME_CHANGE
+  JOB_LOSS
+}
+
+model User {
+  id                        String    @id @default(cuid())
+  email                     String    @unique
+  passwordHash              String
+  name                      String
+  timezone                  String    @default("Asia/Kolkata")
+  taxSlabPercent            Decimal   @db.Decimal(6, 3)
+  taxRegime                 TaxRegime @default(NEW)
+  salaryDayOfMonth          Int?
+  emergencyFundTargetMonths Int       @default(6)
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  accounts              Account[]
+  assets                Asset[]
+  liabilities           Liability[]
+  commitments           Commitment[]
+  variableSpendBaseline VariableSpendBaseline?
+  goals                 Goal[]
+  scenarios             Scenario[]
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  type           AccountType
+  currentBalance Decimal     @db.Decimal(18, 4)
+  isJoint        Boolean     @default(false)
+  balanceAsOf    DateTime
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+model Asset {
+  id                          String    @id @default(cuid())
+  userId                      String
+  user                        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                        String
+  type                        AssetType
+  investedAmount              Decimal   @db.Decimal(18, 4)
+  currentValue                Decimal   @db.Decimal(18, 4)
+  valuationAsOf               DateTime
+  expectedAnnualReturnPercent Decimal?  @db.Decimal(6, 3)
+  isJoint                     Boolean   @default(false)
+  notes                       String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Liability {
+  id                        String        @id @default(cuid())
+  userId                    String
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                      String
+  type                      LiabilityType
+  principalAmount           Decimal       @db.Decimal(18, 4)
+  annualInterestRatePercent Decimal       @db.Decimal(6, 3)
+  startDate                 DateTime
+  tenureMonths              Int
+  emiAmount                 Decimal       @db.Decimal(18, 4)
+  emiDayOfMonth             Int
+  outstandingPrincipal      Decimal       @db.Decimal(18, 4)
+  outstandingAsOf           DateTime
+  prepaymentPenaltyPercent  Decimal?      @db.Decimal(6, 3)
+  isTaxDeductible           Boolean       @default(false)
+  isSelfOccupied            Boolean       @default(true)
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+
+  prepayments Prepayment[]
+  commitments Commitment[]
+
+  @@index([userId])
+}
+
+model Prepayment {
+  id          String         @id @default(cuid())
+  liabilityId String
+  liability   Liability      @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  amount      Decimal        @db.Decimal(18, 4)
+  date        DateTime
+  mode        PrepaymentMode
+  createdAt   DateTime       @default(now())
+
+  @@index([liabilityId])
+}
+
+model Commitment {
+  id                String              @id @default(cuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  direction         CommitmentDirection
+  category          CommitmentCategory
+  amount            Decimal             @db.Decimal(18, 4)
+  isVariable        Boolean             @default(false)
+  frequency         CommitmentFrequency
+  anchorDate        DateTime
+  dayOfMonth        Int?
+  endDate           DateTime?
+  linkedLiabilityId String?
+  linkedLiability   Liability?          @relation(fields: [linkedLiabilityId], references: [id], onDelete: Cascade)
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([anchorDate])
+  @@index([linkedLiabilityId])
+}
+
+model VariableSpendBaseline {
+  id            String              @id @default(cuid())
+  userId        String              @unique
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyAmount Decimal             @db.Decimal(18, 4)
+  source        VariableSpendSource
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model Goal {
+  id                          String   @id @default(cuid())
+  userId                      String
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                        String
+  targetAmount                Decimal  @db.Decimal(18, 4)
+  currentAmount               Decimal  @default(0) @db.Decimal(18, 4)
+  targetDate                  DateTime
+  monthlyContribution         Decimal  @db.Decimal(18, 4)
+  expectedAnnualReturnPercent Decimal  @db.Decimal(6, 3)
+  inflationPercent            Decimal  @default(6.0) @db.Decimal(6, 3)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Scenario {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  type       ScenarioType
+  inputsJson Json
+  resultJson Json
+  createdAt  DateTime     @default(now())
+
+  @@index([userId])
+}
