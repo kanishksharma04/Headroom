@@ -14,6 +14,7 @@ export default async function Home() {
           <ThemeToggle />
           <Button
             render={<Link href={session?.user ? "/today" : "/sign-in"} />}
+            nativeButton={false}
             variant="ghost"
             size="sm"
           >
@@ -29,7 +30,7 @@ export default async function Home() {
           Not what you spent — what you can safely do next.
         </p>
         {!session?.user ? (
-          <Button render={<Link href="/sign-up" />} className="mt-6">
+          <Button render={<Link href="/sign-up" />} nativeButton={false} className="mt-6">
             Create an account
           </Button>
         ) : null}

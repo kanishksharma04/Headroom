@@ -52,6 +52,12 @@ export function todayIst(): Date {
   return startOfIstDay(new Date());
 }
 
+/** Formats a date as `YYYY-MM-DD` in IST, for `<input type="date">` default values. */
+export function toIstDateInputValue(date: Date): string {
+  const { year, month, day } = getIstParts(date);
+  return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 /**
  * The last valid day of a given month, e.g. (2026, 1) -> 28 for February,
  * (2026, 3) -> 30 for April. `month` is 0-indexed.

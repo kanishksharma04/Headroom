@@ -13,6 +13,7 @@ import {
   resolveIstDateForDayOfMonth,
   startOfIstDay,
   todayIst,
+  toIstDateInputValue,
 } from "@/lib/dates";
 
 describe("getIstParts / istDate round-trip", () => {
@@ -25,6 +26,18 @@ describe("getIstParts / istDate round-trip", () => {
   it("builds the correct UTC instant from IST wall-clock components", () => {
     const date = istDate(2026, 8, 5, 0, 30, 0);
     expect(date.toISOString()).toBe("2026-09-04T19:00:00.000Z");
+  });
+});
+
+describe("toIstDateInputValue", () => {
+  it("formats as zero-padded YYYY-MM-DD in IST", () => {
+    expect(toIstDateInputValue(istDate(2026, 8, 5))).toBe("2026-09-05");
+    expect(toIstDateInputValue(istDate(2026, 0, 1))).toBe("2026-01-01");
+  });
+
+  it("round-trips through dateOnlyString-style parsing", () => {
+    const date = istDate(2026, 7, 15);
+    expect(toIstDateInputValue(date)).toBe("2026-08-15");
   });
 });
 
