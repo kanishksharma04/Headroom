@@ -29,8 +29,13 @@ export function groupIndianDigits(digits: string): string {
 }
 
 export type FormatMoneyOptions = {
-  /** Number of decimal places to display. Default 0 (whole rupees). */
-  decimals?: number;
+  /**
+   * Number of decimal places to display, or "auto" (the default): shows 2
+   * decimal places when the value has a real fractional part (e.g. an EMI
+   * of ₹34,966.51), and 0 when it's a whole rupee amount. Never silently
+   * rounds away real paise — pass an explicit number to force a fixed width.
+   */
+  decimals?: number | "auto";
   /** Prefix positive, non-zero values with "+". Default false. */
   showSign?: boolean;
 };
@@ -42,10 +47,12 @@ export type FormatMoneyOptions = {
  */
 export function formatMoney(
   value: Decimal.Value,
-  { decimals = 0, showSign = false }: FormatMoneyOptions = {},
+  { decimals = "auto", showSign = false }: FormatMoneyOptions = {},
 ): string {
   const amount = value instanceof Decimal ? value : new Decimal(value);
-  const fixed = amount.toFixed(decimals);
+  const resolvedDecimals =
+    decimals === "auto" ? (amount.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).mod(1).isZero() ? 0 : 2) : decimals;
+  const fixed = amount.toFixed(resolvedDecimals);
   const negative = fixed.startsWith("-");
   const unsigned = negative ? fixed.slice(1) : fixed;
   const [integerPart, fractionalPart] = unsigned.split(".");

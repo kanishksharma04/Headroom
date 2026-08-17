@@ -6,8 +6,10 @@ export type MoneyProps = {
   value: Decimal.Value;
   /** Use lakh/crore shorthand, e.g. "₹38.4L". Summary positions only. */
   shorthand?: boolean;
-  /** Number of decimal places when not using shorthand. Default 0. */
-  decimals?: number;
+  /** Decimal places when not using shorthand. Default "auto": shows 2 only
+   * when the value has a real fractional part, so paise are never silently
+   * rounded away. */
+  decimals?: number | "auto";
   /** Prefix positive, non-zero values with "+". */
   showSign?: boolean;
   /** Colour negative values with the risk colour. */
@@ -18,7 +20,7 @@ export type MoneyProps = {
 export function Money({
   value,
   shorthand = false,
-  decimals = 0,
+  decimals = "auto",
   showSign = false,
   colorize = false,
   className,

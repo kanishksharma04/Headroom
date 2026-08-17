@@ -9,6 +9,10 @@ export function findCommitmentById(id: string): Promise<Commitment | null> {
   return prisma.commitment.findUnique({ where: { id } });
 }
 
+export function findCommitmentByLinkedLiabilityId(liabilityId: string): Promise<Commitment | null> {
+  return prisma.commitment.findFirst({ where: { linkedLiabilityId: liabilityId } });
+}
+
 export function findCommitmentsByUserId(
   userId: string,
   options?: { activeOnly?: boolean },

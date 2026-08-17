@@ -22,6 +22,20 @@ describe("formatMoney", () => {
     expect(formatMoney(42300)).toBe("₹42,300");
   });
 
+  it("auto (the default) shows paise only when the value actually has them", () => {
+    // The bug this guards against: an EMI of ₹34,966.51 silently rounding
+    // to ₹34,967 because a call site forgot to ask for decimals.
+    expect(formatMoney("34966.51")).toBe("₹34,966.51");
+    expect(formatMoney("120000.00")).toBe("₹1,20,000");
+    expect(formatMoney("120000")).toBe("₹1,20,000");
+  });
+
+  it("auto rounds to 2dp before deciding whether paise are present", () => {
+    // 120000.001 has no *meaningful* paise at 2dp once rounded.
+    expect(formatMoney("120000.001")).toBe("₹1,20,000");
+    expect(formatMoney("120000.005")).toBe("₹1,20,000.01");
+  });
+
   it("formats negative values with a leading minus before the rupee sign", () => {
     expect(formatMoney("-42300")).toBe("-₹42,300");
   });
