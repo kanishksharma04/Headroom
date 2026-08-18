@@ -124,13 +124,17 @@ export function financialYearBounds(date: Date): { start: Date; nextStart: Date 
   };
 }
 
+/** The day of the week (0 = Sunday .. 6 = Saturday) the instant falls on, in IST. */
+export function getIstDayOfWeek(date: Date): number {
+  return toZonedTime(date, IST_TIME_ZONE).getDay();
+}
+
 /**
  * Whether the given instant falls on a Monday–Friday in IST. Does not know
  * about Indian bank or market holidays — only excludes weekends.
  */
 export function isBusinessDay(date: Date): boolean {
-  const zoned = toZonedTime(date, IST_TIME_ZONE);
-  const day = zoned.getDay();
+  const day = getIstDayOfWeek(date);
   return day !== 0 && day !== 6;
 }
 

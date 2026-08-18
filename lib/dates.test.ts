@@ -4,6 +4,7 @@ import {
   daysInMonth,
   financialYearBounds,
   financialYearOf,
+  getIstDayOfWeek,
   getIstParts,
   isBusinessDay,
   istDate,
@@ -118,6 +119,16 @@ describe("financial year", () => {
     const { start, nextStart } = financialYearBounds(istDate(2026, 5, 1));
     expect(getIstParts(start)).toMatchObject({ year: 2026, month: 3, day: 1, hour: 0 });
     expect(getIstParts(nextStart)).toMatchObject({ year: 2027, month: 3, day: 1, hour: 0 });
+  });
+});
+
+describe("getIstDayOfWeek", () => {
+  it("reads the IST weekday, not the UTC instant's weekday near midnight", () => {
+    // 14/15/16/17 Aug 2026 are Fri/Sat/Sun/Mon (5/6/0/1).
+    expect(getIstDayOfWeek(istDate(2026, 7, 14))).toBe(5);
+    expect(getIstDayOfWeek(istDate(2026, 7, 15))).toBe(6);
+    expect(getIstDayOfWeek(istDate(2026, 7, 16))).toBe(0);
+    expect(getIstDayOfWeek(istDate(2026, 7, 17))).toBe(1);
   });
 });
 
