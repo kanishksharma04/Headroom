@@ -43,8 +43,8 @@ export default async function TodayPage() {
         title="Add an account to see your headroom"
         description="Once you add a bank or cash account, this screen will show exactly what you can safely spend — after everything you've already committed to."
         action={
-          <Button render={<Link href="/worth" />} nativeButton={false}>
-            Add an account
+          <Button render={<Link href="/onboarding" />} nativeButton={false}>
+            Get started
           </Button>
         }
       />
