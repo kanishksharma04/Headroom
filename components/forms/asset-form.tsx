@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createAssetAction, type FormState } from "@/app/(app)/worth/actions";
+import { createAssetAction, updateAssetAction, type FormState } from "@/app/(app)/worth/actions";
 import { ASSET_TYPES, ASSET_TYPE_LABELS } from "@/lib/validation/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,19 +18,32 @@ import {
 
 const initialState: FormState = {};
 
-export function AssetForm({ todayIso }: { todayIso: string }) {
-  const [state, formAction, isPending] = useActionState(createAssetAction, initialState);
+export type ExistingAsset = {
+  id: string;
+  name: string;
+  type: (typeof ASSET_TYPES)[number];
+  investedAmount: string;
+  currentValue: string;
+  valuationAsOf: string;
+  expectedAnnualReturnPercent: string | null;
+  isJoint: boolean;
+  notes: string | null;
+};
+
+export function AssetForm({ todayIso, existing }: { todayIso: string; existing?: ExistingAsset }) {
+  const action = existing ? updateAssetAction.bind(null, existing.id) : createAssetAction;
+  const [state, formAction, isPending] = useActionState(action, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="asset-name">Name</Label>
-        <Input id="asset-name" name="name" placeholder="EPF" required />
+        <Input id="asset-name" name="name" placeholder="EPF" defaultValue={existing?.name} required />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="asset-type">Type</Label>
-        <Select name="type" defaultValue="MUTUAL_FUND">
+        <Select name="type" defaultValue={existing?.type ?? "MUTUAL_FUND"}>
           <SelectTrigger id="asset-type" className="w-full">
             <SelectValue>{(value: (typeof ASSET_TYPES)[number]) => ASSET_TYPE_LABELS[value]}</SelectValue>
           </SelectTrigger>
@@ -47,11 +60,25 @@ export function AssetForm({ todayIso }: { todayIso: string }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="asset-invested">Invested (₹)</Label>
-          <Input id="asset-invested" name="investedAmount" inputMode="decimal" placeholder="600000" required />
+          <Input
+            id="asset-invested"
+            name="investedAmount"
+            inputMode="decimal"
+            placeholder="600000"
+            defaultValue={existing?.investedAmount}
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="asset-current-value">Current value (₹)</Label>
-          <Input id="asset-current-value" name="currentValue" inputMode="decimal" placeholder="620000" required />
+          <Input
+            id="asset-current-value"
+            name="currentValue"
+            inputMode="decimal"
+            placeholder="620000"
+            defaultValue={existing?.currentValue}
+            required
+          />
         </div>
       </div>
 
@@ -61,23 +88,29 @@ export function AssetForm({ todayIso }: { todayIso: string }) {
           id="asset-valuation-as-of"
           name="valuationAsOf"
           type="date"
-          defaultValue={todayIso}
+          defaultValue={existing?.valuationAsOf ?? todayIso}
           required
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="asset-return">Expected annual return % (optional)</Label>
-        <Input id="asset-return" name="expectedAnnualReturnPercent" inputMode="decimal" placeholder="12" />
+        <Input
+          id="asset-return"
+          name="expectedAnnualReturnPercent"
+          inputMode="decimal"
+          placeholder="12"
+          defaultValue={existing?.expectedAnnualReturnPercent ?? undefined}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="asset-notes">Notes (optional)</Label>
-        <Textarea id="asset-notes" name="notes" rows={2} />
+        <Textarea id="asset-notes" name="notes" rows={2} defaultValue={existing?.notes ?? undefined} />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <Checkbox name="isJoint" />
+        <Checkbox name="isJoint" defaultChecked={existing?.isJoint} />
         Joint holding
       </label>
 
@@ -88,7 +121,7 @@ export function AssetForm({ todayIso }: { todayIso: string }) {
       ) : null}
 
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Adding…" : "Add asset"}
+        {isPending ? "Saving…" : existing ? "Save changes" : "Add asset"}
       </Button>
     </form>
   );

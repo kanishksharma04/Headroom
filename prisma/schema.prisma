@@ -112,6 +112,7 @@ model User {
   variableSpendBaseline VariableSpendBaseline?
   goals                 Goal[]
   scenarios             Scenario[]
+  netWorthSnapshots     NetWorthSnapshot[]
 }
 
 model Account {
@@ -246,5 +247,31 @@ model Scenario {
   resultJson Json
   createdAt  DateTime     @default(now())
 
+  @@index([userId])
+}
+
+/// A point-in-time record of a user's full balance sheet, captured
+/// automatically whenever an account, asset or liability changes — one row
+/// per IST calendar day touched. Powers the net worth history chart and
+/// the month-over-month attribution view, neither of which V0 could
+/// otherwise support (there is no other historical record).
+model NetWorthSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capturedAt       DateTime
+  netWorth         Decimal  @db.Decimal(18, 4)
+  totalAssets      Decimal  @db.Decimal(18, 4)
+  totalLiabilities Decimal  @db.Decimal(18, 4)
+  /// [{ id, currentBalance }]
+  accountsJson     Json
+  /// [{ id, currentValue, investedAmount }]
+  assetsJson       Json
+  /// [{ id, outstandingPrincipal }]
+  liabilitiesJson  Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, capturedAt])
   @@index([userId])
 }

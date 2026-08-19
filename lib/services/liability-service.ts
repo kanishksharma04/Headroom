@@ -11,6 +11,7 @@ import {
   updateCommitment,
 } from "@/lib/repositories/commitment-repository";
 import { NotFoundError } from "@/lib/services/account-service";
+import { captureNetWorthSnapshotForUser } from "@/lib/services/networth-snapshot-service";
 import { deriveEmiCommitmentFields } from "@/lib/engines/commitments";
 import type { LiabilityFormInput } from "@/lib/validation/liability";
 import type { Liability } from "@/lib/generated/prisma/client";
@@ -82,6 +83,7 @@ export async function addLiabilityForUser(
     isSelfOccupied: input.isSelfOccupied,
   });
   await syncEmiCommitment(userId, liability);
+  await captureNetWorthSnapshotForUser(userId, new Date());
   return liability;
 }
 
@@ -115,6 +117,7 @@ export async function editLiabilityForUser(
     isSelfOccupied: input.isSelfOccupied,
   });
   await syncEmiCommitment(userId, liability);
+  await captureNetWorthSnapshotForUser(userId, new Date());
   return liability;
 }
 
@@ -123,4 +126,5 @@ export async function removeLiabilityForUser(userId: string, liabilityId: string
   // The linked EMI commitment cascades on delete — see the Liability
   // relation in prisma/schema.prisma.
   await deleteLiability(liabilityId);
+  await captureNetWorthSnapshotForUser(userId, new Date());
 }

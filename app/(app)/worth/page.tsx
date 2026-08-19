@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { calculateNetWorth } from "@/lib/engines/networth";
-import { listAccountsForUser } from "@/lib/services/account-service";
-import { listAssetsForUser } from "@/lib/services/asset-service";
-import { listLiabilitiesForUser } from "@/lib/services/liability-service";
+import { getWorthOverviewForUser } from "@/lib/services/worth-service";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/validation/account";
 import { ASSET_TYPE_LABELS } from "@/lib/validation/asset";
 import { LIABILITY_TYPE_LABELS } from "@/lib/validation/liability";
 import { toIstDateInputValue, todayIst } from "@/lib/dates";
+import { describeNetWorthAttribution } from "@/lib/format-attribution";
+import { NetWorthHistoryChart } from "@/components/worth/net-worth-history-chart";
+import { sum } from "@/lib/money";
+import type { Asset, Liability } from "@/lib/generated/prisma/client";
 import { deleteAccountAction, deleteAssetAction, deleteLiabilityAction } from "./actions";
 import { AddEntityDialog } from "@/components/forms/add-entity-dialog";
 import { AccountForm } from "@/components/forms/account-form";
@@ -18,12 +19,17 @@ import { StatCard } from "@/components/stat-card";
 import { Money } from "@/components/money";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+function groupByType<T extends { type: string }>(items: T[]): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const list = groups.get(item.type) ?? [];
+    list.push(item);
+    groups.set(item.type, list);
+  }
+  return groups;
+}
 
 export default async function WorthPage() {
   const session = await auth();
@@ -32,19 +38,16 @@ export default async function WorthPage() {
     redirect("/sign-in");
   }
 
-  const [accounts, assets, liabilities] = await Promise.all([
-    listAccountsForUser(userId),
-    listAssetsForUser(userId),
-    listLiabilitiesForUser(userId),
-  ]);
-
-  const netWorth = calculateNetWorth({
-    accounts: accounts.map((a) => ({ currentBalance: a.currentBalance })),
-    assets: assets.map((a) => ({ currentValue: a.currentValue })),
-    liabilities: liabilities.map((l) => ({ outstandingPrincipal: l.outstandingPrincipal })),
-  });
+  const { netWorth, accounts, assets, liabilities, history, attribution } =
+    await getWorthOverviewForUser(userId);
 
   const todayIso = toIstDateInputValue(todayIst());
+  const assetGroups = groupByType<Asset>(assets);
+  const liabilityGroups = groupByType<Liability>(liabilities);
+  const chartData = history.map((point) => ({
+    date: point.date.getTime(),
+    netWorth: point.netWorth.toNumber(),
+  }));
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
@@ -58,6 +61,29 @@ export default async function WorthPage() {
         <StatCard label="Total assets" value={<Money value={netWorth.totalAssets} shorthand />} />
         <StatCard label="Total liabilities" value={<Money value={netWorth.totalLiabilities} shorthand />} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chartData.length < 2 ? (
+            <p className="text-muted-foreground text-sm">
+              Net worth history builds up as you keep your accounts, assets and liabilities current —
+              check back after a few updates.
+            </p>
+          ) : (
+            <NetWorthHistoryChart data={chartData} />
+          )}
+          {attribution ? (
+            <p className="text-muted-foreground mt-4 text-sm">{describeNetWorthAttribution(attribution)}</p>
+          ) : (
+            <p className="text-muted-foreground mt-4 text-sm">
+              Come back in a few weeks to see what changed and why.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -112,27 +138,46 @@ export default async function WorthPage() {
               description="Add your EPF, PPF, mutual funds, property or gold — anything AA can't see, this can."
             />
           ) : (
-            <ul className="divide-y">
-              {assets.map((asset) => (
-                <li key={asset.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <p className="text-sm font-medium">{asset.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {ASSET_TYPE_LABELS[asset.type]}
-                      {asset.isJoint ? " · Joint" : ""}
-                    </p>
+            <div className="flex flex-col gap-5">
+              {Array.from(assetGroups.entries()).map(([type, items]) => {
+                const subtotal = sum(items.map((item) => item.currentValue));
+                return (
+                  <div key={type}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                        {ASSET_TYPE_LABELS[type as keyof typeof ASSET_TYPE_LABELS]}
+                      </h3>
+                      <Money value={subtotal} className="text-muted-foreground text-xs font-medium" />
+                    </div>
+                    <ul className="divide-y">
+                      {items.map((asset) => (
+                        <li key={asset.id} className="flex items-center justify-between py-2.5">
+                          <p className="text-sm font-medium">
+                            {asset.name}
+                            {asset.isJoint ? (
+                              <span className="text-muted-foreground font-normal"> · Joint</span>
+                            ) : null}
+                          </p>
+                          <div className="flex items-center gap-3">
+                            <Money value={asset.currentValue} className="text-sm font-medium" />
+                            <form action={deleteAssetAction.bind(null, asset.id)}>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                type="submit"
+                                aria-label={`Delete ${asset.name}`}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </form>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Money value={asset.currentValue} className="text-sm font-medium" />
-                    <form action={deleteAssetAction.bind(null, asset.id)}>
-                      <Button variant="ghost" size="icon-sm" type="submit" aria-label={`Delete ${asset.name}`}>
-                        <Trash2 />
-                      </Button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -151,31 +196,46 @@ export default async function WorthPage() {
               description="Add a loan to see its amortisation schedule and run prepayment scenarios in Decide."
             />
           ) : (
-            <ul className="divide-y">
-              {liabilities.map((liability) => (
-                <li key={liability.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <p className="text-sm font-medium">{liability.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {LIABILITY_TYPE_LABELS[liability.type]} · {liability.annualInterestRatePercent.toString()}%
-                    </p>
+            <div className="flex flex-col gap-5">
+              {Array.from(liabilityGroups.entries()).map(([type, items]) => {
+                const subtotal = sum(items.map((item) => item.outstandingPrincipal));
+                return (
+                  <div key={type}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                        {LIABILITY_TYPE_LABELS[type as keyof typeof LIABILITY_TYPE_LABELS]}
+                      </h3>
+                      <Money value={subtotal} className="text-muted-foreground text-xs font-medium" />
+                    </div>
+                    <ul className="divide-y">
+                      {items.map((liability) => (
+                        <li key={liability.id} className="flex items-center justify-between py-2.5">
+                          <div>
+                            <p className="text-sm font-medium">{liability.name}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {liability.annualInterestRatePercent.toString()}%
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Money value={liability.outstandingPrincipal} className="text-sm font-medium" />
+                            <form action={deleteLiabilityAction.bind(null, liability.id)}>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                type="submit"
+                                aria-label={`Delete ${liability.name}`}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </form>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Money value={liability.outstandingPrincipal} className="text-sm font-medium" />
-                    <form action={deleteLiabilityAction.bind(null, liability.id)}>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        type="submit"
-                        aria-label={`Delete ${liability.name}`}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

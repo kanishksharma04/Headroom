@@ -6,6 +6,7 @@ import { commitmentFormSchema } from "@/lib/validation/commitment";
 import { variableSpendFormSchema } from "@/lib/validation/variable-spend";
 import {
   addCommitmentForUser,
+  editCommitmentForUser,
   removeCommitmentForUser,
   setCommitmentActiveForUser,
 } from "@/lib/services/commitment-service";
@@ -26,12 +27,8 @@ function firstIssueMessage(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? "Check the form for errors.";
 }
 
-export async function createCommitmentAction(
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const userId = await requireUserId();
-  const parsed = commitmentFormSchema.safeParse({
+function parseCommitmentForm(formData: FormData) {
+  return commitmentFormSchema.safeParse({
     name: formData.get("name"),
     direction: formData.get("direction"),
     category: formData.get("category"),
@@ -42,12 +39,38 @@ export async function createCommitmentAction(
     dayOfMonth: formData.get("dayOfMonth"),
     endDate: formData.get("endDate"),
   });
+}
+
+export async function createCommitmentAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const userId = await requireUserId();
+  const parsed = parseCommitmentForm(formData);
   if (!parsed.success) {
     return { error: firstIssueMessage(parsed.error) };
   }
 
   await addCommitmentForUser(userId, parsed.data);
   revalidatePath("/ahead");
+  revalidatePath("/records");
+  return {};
+}
+
+export async function updateCommitmentAction(
+  commitmentId: string,
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const userId = await requireUserId();
+  const parsed = parseCommitmentForm(formData);
+  if (!parsed.success) {
+    return { error: firstIssueMessage(parsed.error) };
+  }
+
+  await editCommitmentForUser(userId, commitmentId, parsed.data);
+  revalidatePath("/ahead");
+  revalidatePath("/records");
   return {};
 }
 
@@ -55,6 +78,7 @@ export async function deleteCommitmentAction(commitmentId: string): Promise<void
   const userId = await requireUserId();
   await removeCommitmentForUser(userId, commitmentId);
   revalidatePath("/ahead");
+  revalidatePath("/records");
 }
 
 export async function toggleCommitmentActiveAction(
