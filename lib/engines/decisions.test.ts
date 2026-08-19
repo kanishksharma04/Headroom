@@ -1,7 +1,68 @@
 import { describe, expect, it } from "vitest";
-import { checkAffordability, prepayVsInvest } from "@/lib/engines/decisions";
+import {
+  checkAffordability,
+  deriveRemainingScheduleParams,
+  prepayVsInvest,
+  projectedInvestmentValue,
+} from "@/lib/engines/decisions";
 import type { HeadroomCommitmentInput } from "@/lib/engines/headroom";
-import { istDate } from "@/lib/dates";
+import { getIstParts, istDate } from "@/lib/dates";
+
+describe("deriveRemainingScheduleParams", () => {
+  it("counts the full remaining tenure when now is right at the start", () => {
+    const params = deriveRemainingScheduleParams(
+      { emiAmount: "34966.51", emiDayOfMonth: 5, startDate: istDate(2026, 7, 15), tenureMonths: 240 },
+      istDate(2026, 7, 15), // same day as the loan started, before the first EMI (5 Aug already passed if start is 15 Aug — first EMI anchors to 5 Aug per deriveEmiCommitmentFields)
+    );
+    // The anchor month is August 2026 itself (day 5), which is before the
+    // 15 Aug "now" — so the Aug EMI has already happened; 239 remain.
+    expect(params.remainingTenureMonths).toBe(239);
+    expect(getIstParts(params.firstDueDate)).toMatchObject({ year: 2026, month: 8, day: 5 });
+  });
+
+  it("counts down correctly partway through a loan", () => {
+    const params = deriveRemainingScheduleParams(
+      { emiAmount: "10000", emiDayOfMonth: 5, startDate: istDate(2024, 0, 5), tenureMonths: 60 },
+      istDate(2026, 0, 6), // the day after January 2026's EMI (the 25th of 60)
+    );
+    // 25 EMIs (Jan 2024 through Jan 2026 inclusive) have already fallen due; 35 remain.
+    expect(params.remainingTenureMonths).toBe(35);
+    expect(getIstParts(params.firstDueDate)).toMatchObject({ year: 2026, month: 1, day: 5 });
+  });
+
+  it("includes this month's EMI when it hasn't happened yet", () => {
+    const params = deriveRemainingScheduleParams(
+      { emiAmount: "10000", emiDayOfMonth: 5, startDate: istDate(2024, 0, 5), tenureMonths: 60 },
+      istDate(2026, 0, 1), // before this month's 5th
+    );
+    expect(getIstParts(params.firstDueDate)).toMatchObject({ year: 2026, month: 0, day: 5 });
+    expect(params.remainingTenureMonths).toBe(36); // Jan 2026 through Dec 2028
+  });
+
+  it("throws once the loan's original tenure has fully elapsed", () => {
+    expect(() =>
+      deriveRemainingScheduleParams(
+        { emiAmount: "10000", emiDayOfMonth: 5, startDate: istDate(2020, 0, 5), tenureMonths: 12 },
+        istDate(2026, 0, 1),
+      ),
+    ).toThrow();
+  });
+});
+
+describe("projectedInvestmentValue", () => {
+  it("compounds a lump sum at a fixed annual rate over a fractional-year term", () => {
+    // 200000 * 1.12^(208/12) — matches the BASE scenario in prepayVsInvest exactly.
+    expect(projectedInvestmentValue("200000", "12", 208).toFixed(2)).toBe("1426075.07");
+  });
+
+  it("is the identity at zero months", () => {
+    expect(projectedInvestmentValue("50000", "10", 0).toFixed(2)).toBe("50000.00");
+  });
+
+  it("matches simple principal at 0% return", () => {
+    expect(projectedInvestmentValue("50000", "0", 60).toFixed(2)).toBe("50000.00");
+  });
+});
 
 /**
  * Note on the research document's §17.1 worked example: its illustrative

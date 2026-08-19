@@ -31,7 +31,7 @@ export function LiabilityForm({ todayIso }: { todayIso: string }) {
         <Label htmlFor="liability-type">Type</Label>
         <Select name="type" defaultValue="HOME_LOAN">
           <SelectTrigger id="liability-type" className="w-full">
-            <SelectValue />
+            <SelectValue>{(value: (typeof LIABILITY_TYPES)[number]) => LIABILITY_TYPE_LABELS[value]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {LIABILITY_TYPES.map((type) => (

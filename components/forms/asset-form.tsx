@@ -32,7 +32,7 @@ export function AssetForm({ todayIso }: { todayIso: string }) {
         <Label htmlFor="asset-type">Type</Label>
         <Select name="type" defaultValue="MUTUAL_FUND">
           <SelectTrigger id="asset-type" className="w-full">
-            <SelectValue />
+            <SelectValue>{(value: (typeof ASSET_TYPES)[number]) => ASSET_TYPE_LABELS[value]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {ASSET_TYPES.map((type) => (

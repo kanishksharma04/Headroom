@@ -15,7 +15,11 @@ import {
   type ProjectionHorizonDays,
 } from "@/lib/engines/ahead";
 import { calculateHeadroom, type HeadroomCommitmentInput } from "@/lib/engines/headroom";
-import type { CommitmentForOccurrences } from "@/lib/engines/commitments";
+import {
+  deriveEmiCommitmentFields,
+  generateOccurrences,
+  type CommitmentForOccurrences,
+} from "@/lib/engines/commitments";
 
 // ---------------------------------------------------------------------------
 // Prepay vs invest
@@ -50,6 +54,37 @@ export type PrepayVsInvestInput = {
   /** Applied to the investment gain only, at exit. Default 12.5% (LTCG on equity-oriented funds). */
   capitalGainsTaxPercent?: Decimal.Value;
 };
+
+/**
+ * Derives how many EMIs actually remain on a stored loan, and the date
+ * the next one falls due, as of `now`. Reuses the same EMI-commitment
+ * derivation and occurrence generation already verified elsewhere,
+ * rather than re-deriving month arithmetic here.
+ */
+export function deriveRemainingScheduleParams(
+  liability: { emiAmount: Decimal.Value; emiDayOfMonth: number; startDate: Date; tenureMonths: number },
+  now: Date,
+): { remainingTenureMonths: number; firstDueDate: Date } {
+  const emiFields = deriveEmiCommitmentFields(liability);
+  const syntheticEmiCommitment: CommitmentForOccurrences = {
+    id: "emi",
+    name: "EMI",
+    direction: "OUTFLOW",
+    amount: emiFields.amount,
+    frequency: "MONTHLY",
+    anchorDate: emiFields.anchorDate,
+    dayOfMonth: emiFields.dayOfMonth,
+    endDate: emiFields.endDate,
+    isActive: true,
+  };
+
+  const remaining = generateOccurrences(syntheticEmiCommitment, { from: now, to: emiFields.endDate });
+  if (remaining.length === 0) {
+    throw new Error("This loan has already reached its scheduled payoff date.");
+  }
+
+  return { remainingTenureMonths: remaining.length, firstDueDate: remaining[0].date };
+}
 
 export type PrepayBranchResult = {
   interestSaved: Money;
@@ -98,6 +133,22 @@ function totalYearlyDeductibleInterest(
       computeSection24bDeduction(yearlyInterest, { isSelfOccupied }),
     ),
   );
+}
+
+/**
+ * Compound growth of a lump sum at a fixed nominal annual rate, over a
+ * given number of months — pre-tax. Exported so the Decide screen can
+ * sample it at intermediate points to chart growth over time, using
+ * exactly the same formula this engine uses for the final value.
+ */
+export function projectedInvestmentValue(
+  lumpSum: Decimal.Value,
+  annualRatePercent: Decimal.Value,
+  months: number,
+): Money {
+  const rate = toMoney(annualRatePercent).div(100);
+  const years = toMoney(months).div(12);
+  return toMoney(lumpSum).times(rate.plus(1).pow(years));
 }
 
 /**
@@ -165,9 +216,7 @@ export function prepayVsInvest(input: PrepayVsInvestInput): PrepayVsInvestResult
   ];
 
   const investScenarios: InvestScenario[] = scenarios.map(([label, ratePercent]) => {
-    const rate = toMoney(ratePercent).div(100);
-    const years = toMoney(liability.remainingTenureMonths).div(12);
-    const projectedValue = toMoney(lumpSum).times(rate.plus(1).pow(years));
+    const projectedValue = projectedInvestmentValue(lumpSum, ratePercent, liability.remainingTenureMonths);
     const gain = max(projectedValue.minus(lumpSum), 0);
     const capitalGainsTax = gain.times(toMoney(capitalGainsTaxPercent)).div(100);
     return {

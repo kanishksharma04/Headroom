@@ -31,7 +31,7 @@ export function AccountForm({ todayIso }: { todayIso: string }) {
         <Label htmlFor="account-type">Type</Label>
         <Select name="type" defaultValue="SAVINGS">
           <SelectTrigger id="account-type" className="w-full">
-            <SelectValue />
+            <SelectValue>{(value: (typeof ACCOUNT_TYPES)[number]) => ACCOUNT_TYPE_LABELS[value]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {ACCOUNT_TYPES.map((type) => (

@@ -37,7 +37,9 @@ export function CommitmentForm({ todayIso }: { todayIso: string }) {
           <Label htmlFor="commitment-direction">Direction</Label>
           <Select name="direction" defaultValue="OUTFLOW">
             <SelectTrigger id="commitment-direction" className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: "OUTFLOW" | "INFLOW") => (value === "INFLOW" ? "Money in" : "Money out")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="OUTFLOW">Money out</SelectItem>
@@ -49,7 +51,9 @@ export function CommitmentForm({ todayIso }: { todayIso: string }) {
           <Label htmlFor="commitment-category">Category</Label>
           <Select name="category" defaultValue="OTHER">
             <SelectTrigger id="commitment-category" className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: (typeof COMMITMENT_CATEGORIES)[number]) => COMMITMENT_CATEGORY_LABELS[value]}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {COMMITMENT_CATEGORIES.map((category) => (
@@ -72,7 +76,9 @@ export function CommitmentForm({ todayIso }: { todayIso: string }) {
           <Label htmlFor="commitment-frequency">Frequency</Label>
           <Select name="frequency" defaultValue="MONTHLY">
             <SelectTrigger id="commitment-frequency" className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: (typeof COMMITMENT_FREQUENCIES)[number]) => COMMITMENT_FREQUENCY_LABELS[value]}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {COMMITMENT_FREQUENCIES.map((frequency) => (
