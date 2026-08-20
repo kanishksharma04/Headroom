@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Search, Trash2 } from "lucide-react";
+import { Pencil, Search, Trash2, X } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { listAccountsForUser } from "@/lib/services/account-service";
 import { listAssetsForUser } from "@/lib/services/asset-service";
@@ -13,7 +14,6 @@ import { toIstDateInputValue, todayIst } from "@/lib/dates";
 import { deleteAccountAction, deleteAssetAction, deleteLiabilityAction } from "@/app/(app)/worth/actions";
 import { deleteCommitmentAction } from "@/app/(app)/ahead/actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { EditEntityDialog } from "@/components/forms/edit-entity-dialog";
 import { AccountForm } from "@/components/forms/account-form";
 import { AssetForm } from "@/components/forms/asset-form";
 import { LiabilityForm } from "@/components/forms/liability-form";
@@ -33,6 +33,14 @@ function matches(name: string, query: string): boolean {
   return query === "" || name.toLowerCase().includes(query);
 }
 
+function buildHref(params: { q?: string; edit?: string }): string {
+  const searchParams = new URLSearchParams();
+  if (params.q) searchParams.set("q", params.q);
+  if (params.edit) searchParams.set("edit", params.edit);
+  const qs = searchParams.toString();
+  return qs ? `/records?${qs}` : "/records";
+}
+
 function DeleteButton({ action, label }: { action: () => Promise<void>; label: string }) {
   return (
     <form action={action}>
@@ -43,10 +51,24 @@ function DeleteButton({ action, label }: { action: () => Promise<void>; label: s
   );
 }
 
+function EditToggle({ href, isOpen, name }: { href: string; isOpen: boolean; name: string }) {
+  return (
+    <Button
+      render={<Link href={href} scroll={false} />}
+      nativeButton={false}
+      variant="ghost"
+      size="icon-sm"
+      aria-label={isOpen ? `Close ${name}` : `Edit ${name}`}
+    >
+      {isOpen ? <X /> : <Pencil />}
+    </Button>
+  );
+}
+
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; edit?: string }>;
 }) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -54,7 +76,7 @@ export default async function RecordsPage({
     redirect("/sign-in");
   }
 
-  const { q } = await searchParams;
+  const { q, edit } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   const todayIso = toIstDateInputValue(todayIst());
 
@@ -85,19 +107,11 @@ export default async function RecordsPage({
       align: "right",
       render: (a) => (
         <div className="flex justify-end gap-1">
-          <EditEntityDialog title="Edit account" label={`Edit ${a.name}`}>
-            <AccountForm
-              todayIso={todayIso}
-              existing={{
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                currentBalance: a.currentBalance.toString(),
-                isJoint: a.isJoint,
-                balanceAsOf: toIstDateInputValue(a.balanceAsOf),
-              }}
-            />
-          </EditEntityDialog>
+          <EditToggle
+            href={a.id === edit ? buildHref({ q }) : buildHref({ q, edit: a.id })}
+            isOpen={a.id === edit}
+            name={a.name}
+          />
           <DeleteButton action={deleteAccountAction.bind(null, a.id)} label={`Delete ${a.name}`} />
         </div>
       ),
@@ -119,22 +133,11 @@ export default async function RecordsPage({
       align: "right",
       render: (a) => (
         <div className="flex justify-end gap-1">
-          <EditEntityDialog title="Edit asset" label={`Edit ${a.name}`}>
-            <AssetForm
-              todayIso={todayIso}
-              existing={{
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                investedAmount: a.investedAmount.toString(),
-                currentValue: a.currentValue.toString(),
-                valuationAsOf: toIstDateInputValue(a.valuationAsOf),
-                expectedAnnualReturnPercent: a.expectedAnnualReturnPercent?.toString() ?? null,
-                isJoint: a.isJoint,
-                notes: a.notes,
-              }}
-            />
-          </EditEntityDialog>
+          <EditToggle
+            href={a.id === edit ? buildHref({ q }) : buildHref({ q, edit: a.id })}
+            isOpen={a.id === edit}
+            name={a.name}
+          />
           <DeleteButton action={deleteAssetAction.bind(null, a.id)} label={`Delete ${a.name}`} />
         </div>
       ),
@@ -162,27 +165,11 @@ export default async function RecordsPage({
       align: "right",
       render: (l) => (
         <div className="flex justify-end gap-1">
-          <EditEntityDialog title="Edit liability" label={`Edit ${l.name}`}>
-            <LiabilityForm
-              todayIso={todayIso}
-              existing={{
-                id: l.id,
-                name: l.name,
-                type: l.type,
-                principalAmount: l.principalAmount.toString(),
-                annualInterestRatePercent: l.annualInterestRatePercent.toString(),
-                startDate: toIstDateInputValue(l.startDate),
-                tenureMonths: l.tenureMonths,
-                emiAmount: l.emiAmount.toString(),
-                emiDayOfMonth: l.emiDayOfMonth,
-                outstandingPrincipal: l.outstandingPrincipal.toString(),
-                outstandingAsOf: toIstDateInputValue(l.outstandingAsOf),
-                prepaymentPenaltyPercent: l.prepaymentPenaltyPercent?.toString() ?? null,
-                isTaxDeductible: l.isTaxDeductible,
-                isSelfOccupied: l.isSelfOccupied,
-              }}
-            />
-          </EditEntityDialog>
+          <EditToggle
+            href={l.id === edit ? buildHref({ q }) : buildHref({ q, edit: l.id })}
+            isOpen={l.id === edit}
+            name={l.name}
+          />
           <DeleteButton action={deleteLiabilityAction.bind(null, l.id)} label={`Delete ${l.name}`} />
         </div>
       ),
@@ -208,23 +195,11 @@ export default async function RecordsPage({
           <span className="text-muted-foreground text-xs">From loan</span>
         ) : (
           <div className="flex justify-end gap-1">
-            <EditEntityDialog title="Edit commitment" label={`Edit ${c.name}`}>
-              <CommitmentForm
-                todayIso={todayIso}
-                existing={{
-                  id: c.id,
-                  name: c.name,
-                  direction: c.direction,
-                  category: c.category,
-                  amount: c.amount.toString(),
-                  frequency: c.frequency,
-                  anchorDate: toIstDateInputValue(c.anchorDate),
-                  dayOfMonth: c.dayOfMonth,
-                  endDate: c.endDate ? toIstDateInputValue(c.endDate) : null,
-                  isVariable: c.isVariable,
-                }}
-              />
-            </EditEntityDialog>
+            <EditToggle
+              href={c.id === edit ? buildHref({ q }) : buildHref({ q, edit: c.id })}
+              isOpen={c.id === edit}
+              name={c.name}
+            />
             <DeleteButton action={deleteCommitmentAction.bind(null, c.id)} label={`Delete ${c.name}`} />
           </div>
         ),
@@ -259,6 +234,22 @@ export default async function RecordsPage({
             rows={filteredAccounts}
             getRowKey={(a) => a.id}
             emptyMessage={query ? "No accounts match your search." : "No accounts yet."}
+            expandedRowKey={edit}
+            renderExpandedRow={(a) => (
+              <div className="max-w-md pt-4">
+                <AccountForm
+                  todayIso={todayIso}
+                  existing={{
+                    id: a.id,
+                    name: a.name,
+                    type: a.type,
+                    currentBalance: a.currentBalance.toString(),
+                    isJoint: a.isJoint,
+                    balanceAsOf: toIstDateInputValue(a.balanceAsOf),
+                  }}
+                />
+              </div>
+            )}
           />
         </CardContent>
       </Card>
@@ -273,6 +264,25 @@ export default async function RecordsPage({
             rows={filteredAssets}
             getRowKey={(a) => a.id}
             emptyMessage={query ? "No assets match your search." : "No assets yet."}
+            expandedRowKey={edit}
+            renderExpandedRow={(a) => (
+              <div className="max-w-md pt-4">
+                <AssetForm
+                  todayIso={todayIso}
+                  existing={{
+                    id: a.id,
+                    name: a.name,
+                    type: a.type,
+                    investedAmount: a.investedAmount.toString(),
+                    currentValue: a.currentValue.toString(),
+                    valuationAsOf: toIstDateInputValue(a.valuationAsOf),
+                    expectedAnnualReturnPercent: a.expectedAnnualReturnPercent?.toString() ?? null,
+                    isJoint: a.isJoint,
+                    notes: a.notes,
+                  }}
+                />
+              </div>
+            )}
           />
         </CardContent>
       </Card>
@@ -287,6 +297,30 @@ export default async function RecordsPage({
             rows={filteredLiabilities}
             getRowKey={(l) => l.id}
             emptyMessage={query ? "No liabilities match your search." : "No liabilities yet."}
+            expandedRowKey={edit}
+            renderExpandedRow={(l) => (
+              <div className="max-w-md pt-4">
+                <LiabilityForm
+                  todayIso={todayIso}
+                  existing={{
+                    id: l.id,
+                    name: l.name,
+                    type: l.type,
+                    principalAmount: l.principalAmount.toString(),
+                    annualInterestRatePercent: l.annualInterestRatePercent.toString(),
+                    startDate: toIstDateInputValue(l.startDate),
+                    tenureMonths: l.tenureMonths,
+                    emiAmount: l.emiAmount.toString(),
+                    emiDayOfMonth: l.emiDayOfMonth,
+                    outstandingPrincipal: l.outstandingPrincipal.toString(),
+                    outstandingAsOf: toIstDateInputValue(l.outstandingAsOf),
+                    prepaymentPenaltyPercent: l.prepaymentPenaltyPercent?.toString() ?? null,
+                    isTaxDeductible: l.isTaxDeductible,
+                    isSelfOccupied: l.isSelfOccupied,
+                  }}
+                />
+              </div>
+            )}
           />
         </CardContent>
       </Card>
@@ -301,6 +335,26 @@ export default async function RecordsPage({
             rows={filteredCommitments}
             getRowKey={(c) => c.id}
             emptyMessage={query ? "No commitments match your search." : "No commitments yet."}
+            expandedRowKey={edit}
+            renderExpandedRow={(c) => (
+              <div className="max-w-md pt-4">
+                <CommitmentForm
+                  todayIso={todayIso}
+                  existing={{
+                    id: c.id,
+                    name: c.name,
+                    direction: c.direction,
+                    category: c.category,
+                    amount: c.amount.toString(),
+                    frequency: c.frequency,
+                    anchorDate: toIstDateInputValue(c.anchorDate),
+                    dayOfMonth: c.dayOfMonth,
+                    endDate: c.endDate ? toIstDateInputValue(c.endDate) : null,
+                    isVariable: c.isVariable,
+                  }}
+                />
+              </div>
+            )}
           />
         </CardContent>
       </Card>
