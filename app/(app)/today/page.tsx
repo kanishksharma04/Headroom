@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getTodayOverviewForUser } from "@/lib/services/headroom-service";
 import { formatLongDate, formatShortDate } from "@/lib/format-date";
@@ -53,7 +53,7 @@ export default async function TodayPage() {
     );
   }
 
-  const { headroom, netWorth, upcomingCommitments, attentionItems } = overview;
+  const { headroom, netWorth, upcomingCommitments } = overview;
 
   const committed = sum(
     headroom.lines
@@ -160,23 +160,6 @@ export default async function TodayPage() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard label="Net worth" value={<Money value={netWorth.netWorth} shorthand colorize />} />
       </section>
-
-      {attentionItems.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-muted-foreground text-sm font-medium">Needs attention</h2>
-          <div className="flex flex-col gap-2">
-            {attentionItems.map((item, index) => (
-              <div
-                key={`${item.sourceId ?? item.kind}-${index}`}
-                className="border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded-lg border px-3 py-2.5"
-              >
-                <AlertTriangle className="text-destructive mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <p className="text-sm">{item.message}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
