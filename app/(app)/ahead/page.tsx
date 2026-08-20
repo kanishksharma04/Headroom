@@ -11,12 +11,14 @@ import {
 } from "@/lib/validation/commitment";
 import { toIstDateInputValue, todayIst } from "@/lib/dates";
 import { formatShortDate } from "@/lib/format-date";
+import { compare } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { ProjectionHorizonDays } from "@/lib/engines/ahead";
 import { deleteCommitmentAction } from "./actions";
 import { AddEntityDialog } from "@/components/forms/add-entity-dialog";
 import { CommitmentForm } from "@/components/forms/commitment-form";
 import { VariableSpendForm } from "@/components/forms/variable-spend-form";
+import { RunningBalanceChart } from "@/components/ahead/running-balance-chart";
 import { Money } from "@/components/money";
 import { EmptyState } from "@/components/empty-state";
 import { StatCard } from "@/components/stat-card";
@@ -53,6 +55,19 @@ export default async function AheadPage({
     ]);
 
   const todayIso = toIstDateInputValue(todayIst());
+
+  const balancePoints = [
+    { date: projection.from, balance: projection.startBalance },
+    ...projection.points.map((point) => ({ date: point.date, balance: point.runningBalance })),
+    { date: projection.to, balance: projection.endBalance },
+  ];
+  const lowestBalancePoint = balancePoints.reduce((lowest, point) =>
+    compare(point.balance, lowest.balance) < 0 ? point : lowest,
+  );
+  const chartData = balancePoints.map((point) => ({
+    date: point.date.getTime(),
+    balance: point.balance.toNumber(),
+  }));
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
@@ -113,6 +128,22 @@ export default async function AheadPage({
           />
         ) : (
           <div className="flex flex-col gap-6">
+            <div>
+              <RunningBalanceChart
+                data={chartData}
+                lowestPoint={{
+                  date: lowestBalancePoint.date.getTime(),
+                  balance: lowestBalancePoint.balance.toNumber(),
+                }}
+                goesNegative={projection.goesNegative}
+              />
+              <p className="text-muted-foreground mt-2 text-xs">
+                Lowest point:{" "}
+                <Money value={lowestBalancePoint.balance} colorize className="font-medium" /> on{" "}
+                {formatShortDate(lowestBalancePoint.date)}
+              </p>
+            </div>
+
             {weeks.map((week) => (
               <div key={week.weekStart.toISOString()}>
                 <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
