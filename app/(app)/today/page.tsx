@@ -3,6 +3,8 @@ import { AlertTriangle, ChevronDown } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getTodayOverviewForUser } from "@/lib/services/headroom-service";
 import { formatLongDate, formatShortDate } from "@/lib/format-date";
+import { isNegative, sum } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { Money } from "@/components/money";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
@@ -53,6 +55,22 @@ export default async function TodayPage() {
 
   const { headroom, netWorth, upcomingCommitments, attentionItems } = overview;
 
+  const committed = sum(
+    headroom.lines
+      .filter((line) => line.kind === "OUTFLOW" || line.kind === "VARIABLE_ESTIMATE")
+      .map((line) => line.amount),
+  ).abs();
+  const available = sum(
+    headroom.lines
+      .filter((line) => line.kind === "BALANCE" || line.kind === "INFLOW")
+      .map((line) => line.amount),
+  );
+  const isOvercommitted = isNegative(headroom.amount);
+  const committedPercent = available.isZero()
+    ? 0
+    : Math.min(committed.div(available).toNumber() * 100, 100);
+  const headroomPercent = 100 - committedPercent;
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-6 py-10">
       <details className="group flex flex-col items-center text-center">
@@ -67,6 +85,36 @@ export default async function TodayPage() {
               aria-hidden="true"
             />
           </span>
+
+          {!available.isZero() ? (
+            <div className="mt-6 w-full max-w-xs">
+              <div className="bg-muted flex h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={cn("h-full", isOvercommitted ? "bg-destructive" : "bg-muted-foreground/30")}
+                  style={{ width: `${committedPercent}%` }}
+                />
+                {!isOvercommitted ? (
+                  <div className="bg-number h-full" style={{ width: `${headroomPercent}%` }} />
+                ) : null}
+              </div>
+              <div className="text-muted-foreground mt-2 flex justify-between text-xs">
+                <span>
+                  <Money value={committed} shorthand /> committed
+                </span>
+                <span className={isOvercommitted ? "text-destructive" : undefined}>
+                  {isOvercommitted ? (
+                    <>
+                      Over by <Money value={headroom.amount.abs()} shorthand />
+                    </>
+                  ) : (
+                    <>
+                      <Money value={headroom.amount} shorthand /> headroom
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          ) : null}
         </summary>
 
         <div className="mt-8 w-full divide-y text-left">
