@@ -18,10 +18,20 @@ test("sign-up through onboarding renders a real Headroom Number", async ({ page 
 
   await page.waitForURL("/onboarding");
 
+  // Step 1: salary.
   await page.locator("#salaryAmount").fill("85000");
   await page.locator("#salaryDayOfMonth").fill("1");
+  await page.getByRole("button", { name: "Next" }).click();
+
+  // Step 2: where the money sits.
   await page.locator("#accountName").fill("HDFC Savings");
   await page.locator("#accountBalance").fill("120000");
+  await page.getByRole("button", { name: "Next" }).click();
+
+  // Step 3: loans — skip, none to add.
+  await page.getByRole("button", { name: "Next" }).click();
+
+  // Step 4: everyday spending, then submit.
   await page.locator("#variableSpendAmount").fill("25000");
   await page.getByRole("button", { name: "See my headroom" }).click();
 
