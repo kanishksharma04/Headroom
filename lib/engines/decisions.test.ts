@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   checkAffordability,
   deriveRemainingScheduleParams,
+  incomeChangeImpact,
+  jobLossRunway,
   prepayVsInvest,
   projectedInvestmentValue,
 } from "@/lib/engines/decisions";
@@ -314,5 +316,186 @@ describe("checkAffordability", () => {
     });
     // 30-day fallback window (no salary), so both rent and the purchase fall inside it.
     expect(result.resultingHeadroom.toFixed(2)).toBe("150000.00"); // 200000 - 20000 - 30000
+  });
+});
+
+describe("incomeChangeImpact", () => {
+  const now = istDate(2026, 0, 1);
+  const salary = commitment({
+    id: "salary",
+    name: "Salary",
+    direction: "INFLOW",
+    category: "SALARY",
+    amount: "50000",
+    frequency: "MONTHLY",
+    anchorDate: istDate(2026, 0, 15),
+    dayOfMonth: 15,
+  });
+
+  it("throws when there is no salary commitment to scale", () => {
+    expect(() =>
+      incomeChangeImpact({
+        now,
+        accounts: [{ currentBalance: "0" }],
+        commitments: [commitment({ id: "rent", name: "Rent" })],
+        newMonthlySalary: "60000",
+      }),
+    ).toThrow();
+  });
+
+  it("scales a single salary commitment and the change shows up in the 90-day projection, not the Headroom window", () => {
+    const result = incomeChangeImpact({
+      now,
+      accounts: [{ currentBalance: "0" }],
+      commitments: [salary],
+      newMonthlySalary: "60000",
+    });
+
+    expect(result.currentMonthlySalary.toFixed(2)).toBe("50000.00");
+    expect(result.newMonthlySalary.toFixed(2)).toBe("60000.00");
+    expect(result.monthlySalaryDelta.toFixed(2)).toBe("10000.00");
+
+    // 90 days from 1 Jan reaches 1 Apr; the 15th-of-month salary lands
+    // 15 Jan / 15 Feb / 15 Mar — three times, 15 Apr falls just outside.
+    expect(result.projectionBefore.endBalance.toFixed(2)).toBe("150000.00"); // 50000 * 3
+    expect(result.projectionAfter.endBalance.toFixed(2)).toBe("180000.00"); // 60000 * 3
+    expect(result.projectedEndBalanceDelta.toFixed(2)).toBe("30000.00"); // (60000-50000) * 3
+  });
+
+  it("preserves the relative split across multiple salary commitments when scaling", () => {
+    const salaryA = commitment({
+      id: "salary-a",
+      name: "Salary A",
+      direction: "INFLOW",
+      category: "SALARY",
+      amount: "30000",
+      anchorDate: istDate(2026, 0, 15),
+      dayOfMonth: 15,
+    });
+    const salaryB = commitment({
+      id: "salary-b",
+      name: "Salary B",
+      direction: "INFLOW",
+      category: "SALARY",
+      amount: "20000",
+      anchorDate: istDate(2026, 0, 15),
+      dayOfMonth: 15,
+    });
+
+    const result = incomeChangeImpact({
+      now,
+      accounts: [{ currentBalance: "0" }],
+      commitments: [salaryA, salaryB],
+      newMonthlySalary: "100000", // 2x the combined 50000
+    });
+
+    expect(result.currentMonthlySalary.toFixed(2)).toBe("50000.00");
+    // Each salary line doubles, so one 90-day cycle nets 100000 vs the original 50000.
+    expect(result.projectionAfter.endBalance.toFixed(2)).toBe("300000.00"); // 100000 * 3
+  });
+});
+
+describe("jobLossRunway", () => {
+  const now = istDate(2026, 0, 1);
+
+  it("depletes purely from the variable-spend estimate when no commitments intervene", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "30000" }],
+      commitments: [],
+      variableSpendBaseline: { monthlyAmount: "30000" }, // 1000/day
+      emergencyFundTargetMonths: 6,
+    });
+    expect(result.runwayDays).toBe(30);
+    expect(getIstParts(result.depletionDate!)).toMatchObject({ year: 2026, month: 0, day: 31 });
+  });
+
+  it("depletes exactly at a commitment's due date when that's what pushes the balance negative", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "50000" }],
+      commitments: [
+        commitment({
+          id: "big-outflow",
+          name: "Insurance premium",
+          direction: "OUTFLOW",
+          frequency: "ONE_TIME",
+          amount: "60000",
+          anchorDate: istDate(2026, 0, 16),
+        }),
+      ],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 6,
+    });
+    expect(result.runwayDays).toBe(15);
+    expect(getIstParts(result.depletionDate!)).toMatchObject({ year: 2026, month: 0, day: 16 });
+  });
+
+  it("excludes the SALARY inflow from the projection, unlike every other commitment", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "15000" }],
+      commitments: [
+        commitment({
+          id: "salary",
+          name: "Salary",
+          direction: "INFLOW",
+          category: "SALARY",
+          amount: "50000",
+          frequency: "ONE_TIME",
+          anchorDate: istDate(2026, 0, 4),
+        }),
+        commitment({
+          id: "rent",
+          name: "Rent",
+          direction: "OUTFLOW",
+          frequency: "ONE_TIME",
+          amount: "20000",
+          anchorDate: istDate(2026, 0, 11),
+        }),
+      ],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 6,
+    });
+    // If salary were wrongly included, the balance would be 65000 by day 4
+    // and rent on day 11 would never push it negative.
+    expect(result.runwayDays).toBe(10);
+  });
+
+  it("reports no depletion date when the balance stays positive through the horizon", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "10000000" }],
+      commitments: [],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 6,
+    });
+    expect(result.runwayDays).toBeNull();
+    expect(result.depletionDate).toBeNull();
+  });
+
+  it("computes emergency fund coverage from recurring outflows alone, independent of the depletion date", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "120000" }],
+      commitments: [
+        commitment({ id: "rent", name: "Rent", direction: "OUTFLOW", frequency: "MONTHLY", amount: "20000" }),
+      ],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 6,
+    });
+    expect(result.emergencyFundCoverageMonths.toFixed(2)).toBe("6.00");
+    expect(result.meetsEmergencyFundTarget).toBe(true);
+
+    const shortOfTarget = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "120000" }],
+      commitments: [
+        commitment({ id: "rent", name: "Rent", direction: "OUTFLOW", frequency: "MONTHLY", amount: "20000" }),
+      ],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 8,
+    });
+    expect(shortOfTarget.meetsEmergencyFundTarget).toBe(false);
   });
 });

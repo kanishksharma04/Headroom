@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prepayVsInvestScenarioSchema, affordabilityCheckSchema } from "@/lib/validation/scenario";
+import {
+  prepayVsInvestScenarioSchema,
+  affordabilityCheckSchema,
+  incomeChangeCheckSchema,
+} from "@/lib/validation/scenario";
 import {
   removeScenarioForUser,
   requireOwnedLiabilityForScenario,
@@ -12,7 +16,14 @@ import { findUserById } from "@/lib/repositories/user-repository";
 import { findAccountsByUserId } from "@/lib/repositories/account-repository";
 import { findCommitmentsByUserId } from "@/lib/repositories/commitment-repository";
 import { findGoalsByUserId } from "@/lib/repositories/goal-repository";
-import { deriveRemainingScheduleParams, prepayVsInvest, checkAffordability } from "@/lib/engines/decisions";
+import { findVariableSpendBaselineByUserId } from "@/lib/repositories/variable-spend-baseline-repository";
+import {
+  deriveRemainingScheduleParams,
+  prepayVsInvest,
+  checkAffordability,
+  incomeChangeImpact,
+  jobLossRunway,
+} from "@/lib/engines/decisions";
 
 export type FormState = { error?: string };
 
@@ -162,6 +173,106 @@ export async function checkAffordabilityAction(
       emergencyFundMonthsBefore: result.emergencyFundMonthsBefore.toFixed(1),
       emergencyFundMonthsAfter: result.emergencyFundMonthsAfter.toFixed(1),
       goalImpacts: result.goalImpacts,
+      assumptions: result.assumptions,
+    },
+  };
+}
+
+export type IncomeChangeResultView = {
+  currentMonthlySalary: string;
+  newMonthlySalary: string;
+  monthlySalaryDelta: string;
+  projectedEndBalanceBefore: string;
+  projectedEndBalanceAfter: string;
+  projectedEndBalanceDelta: string;
+  assumptions: string[];
+};
+
+export type IncomeChangeFormState = { error?: string; result?: IncomeChangeResultView };
+
+export async function checkIncomeChangeAction(
+  _prevState: IncomeChangeFormState,
+  formData: FormData,
+): Promise<IncomeChangeFormState> {
+  const userId = await requireUserId();
+  const parsed = incomeChangeCheckSchema.safeParse({
+    newMonthlySalary: formData.get("newMonthlySalary"),
+  });
+  if (!parsed.success) {
+    return { error: firstIssueMessage(parsed.error) };
+  }
+
+  const [accounts, commitments] = await Promise.all([
+    findAccountsByUserId(userId),
+    findCommitmentsByUserId(userId, { activeOnly: true }),
+  ]);
+
+  let result;
+  try {
+    result = incomeChangeImpact({
+      now: new Date(),
+      accounts: accounts.map((a) => ({ currentBalance: a.currentBalance })),
+      commitments,
+      newMonthlySalary: parsed.data.newMonthlySalary,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not compute this scenario." };
+  }
+
+  return {
+    result: {
+      currentMonthlySalary: result.currentMonthlySalary.toFixed(2),
+      newMonthlySalary: result.newMonthlySalary.toFixed(2),
+      monthlySalaryDelta: result.monthlySalaryDelta.toFixed(2),
+      projectedEndBalanceBefore: result.projectionBefore.endBalance.toFixed(2),
+      projectedEndBalanceAfter: result.projectionAfter.endBalance.toFixed(2),
+      projectedEndBalanceDelta: result.projectedEndBalanceDelta.toFixed(2),
+      assumptions: result.assumptions,
+    },
+  };
+}
+
+export type JobLossResultView = {
+  startingBalance: string;
+  monthlyBurn: string;
+  runwayDays: number | null;
+  depletionDate: string | null;
+  emergencyFundCoverageMonths: string;
+  meetsEmergencyFundTarget: boolean;
+  assumptions: string[];
+};
+
+export type JobLossFormState = { error?: string; result?: JobLossResultView };
+
+export async function checkJobLossRunwayAction(): Promise<JobLossFormState> {
+  const userId = await requireUserId();
+
+  const [user, accounts, commitments, variableSpend] = await Promise.all([
+    findUserById(userId),
+    findAccountsByUserId(userId),
+    findCommitmentsByUserId(userId, { activeOnly: true }),
+    findVariableSpendBaselineByUserId(userId),
+  ]);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  const result = jobLossRunway({
+    now: new Date(),
+    accounts: accounts.map((a) => ({ currentBalance: a.currentBalance })),
+    commitments,
+    variableSpendBaseline: variableSpend ? { monthlyAmount: variableSpend.monthlyAmount } : null,
+    emergencyFundTargetMonths: user.emergencyFundTargetMonths,
+  });
+
+  return {
+    result: {
+      startingBalance: result.startingBalance.toFixed(2),
+      monthlyBurn: result.monthlyBurn.toFixed(2),
+      runwayDays: result.runwayDays,
+      depletionDate: result.depletionDate ? result.depletionDate.toISOString() : null,
+      emergencyFundCoverageMonths: result.emergencyFundCoverageMonths.toFixed(1),
+      meetsEmergencyFundTarget: result.meetsEmergencyFundTarget,
       assumptions: result.assumptions,
     },
   };

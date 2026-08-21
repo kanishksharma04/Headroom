@@ -1,5 +1,9 @@
 import { calculateHeadroom, type HeadroomResult } from "@/lib/engines/headroom";
-import { detectAttentionItems, type AttentionItem } from "@/lib/engines/attention";
+import {
+  detectAttentionItems,
+  type AttentionItem,
+  type StaleBalanceSource,
+} from "@/lib/engines/attention";
 import { calculateNetWorth, type NetWorthResult } from "@/lib/engines/networth";
 import { findAccountsByUserId } from "@/lib/repositories/account-repository";
 import { findAssetsByUserId } from "@/lib/repositories/asset-repository";
@@ -70,6 +74,11 @@ export async function getTodayOverviewForUser(userId: string, now: Date): Promis
       date: line.date,
     }));
 
+  const staleBalanceSources: StaleBalanceSource[] = [
+    ...accounts.map((a) => ({ id: a.id, name: a.name, kind: "ACCOUNT" as const, asOf: a.balanceAsOf })),
+    ...assets.map((a) => ({ id: a.id, name: a.name, kind: "ASSET" as const, asOf: a.valuationAsOf })),
+  ];
+
   const attentionItems = detectAttentionItems(
     headroom,
     liabilities.map((l) => ({
@@ -79,6 +88,7 @@ export async function getTodayOverviewForUser(userId: string, now: Date): Promis
       outstandingAsOf: l.outstandingAsOf,
     })),
     now,
+    staleBalanceSources,
   );
 
   return { headroom, netWorth, upcomingCommitments, attentionItems };

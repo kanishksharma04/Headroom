@@ -17,3 +17,9 @@ export const affordabilityCheckSchema = z.object({
 });
 
 export type AffordabilityCheckInput = z.infer<typeof affordabilityCheckSchema>;
+
+export const incomeChangeCheckSchema = z.object({
+  newMonthlySalary: positiveMoneyStringSchema({ maxDecimalPlaces: 2 }),
+});
+
+export type IncomeChangeCheckInput = z.infer<typeof incomeChangeCheckSchema>;

@@ -8,6 +8,8 @@ import { listScenariosForUser } from "@/lib/services/scenario-service";
 import { formatLongDate } from "@/lib/format-date";
 import { PrepayVsInvestTool, type LiabilityOption } from "@/components/decide/prepay-vs-invest-tool";
 import { AffordabilityTool } from "@/components/decide/affordability-tool";
+import { IncomeChangeTool } from "@/components/decide/income-change-tool";
+import { JobLossTool } from "@/components/decide/job-loss-tool";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,6 +134,24 @@ export default async function DecidePage({
         </CardHeader>
         <CardContent>
           <AffordabilityTool />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>What if my income changes?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <IncomeChangeTool />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>What if I lost my job today?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobLossTool />
         </CardContent>
       </Card>
     </div>

@@ -3,7 +3,7 @@ import { addMonthsClamped, getIstParts, resolveIstDateForDayOfMonth } from "@/li
 import { formatShortDate } from "@/lib/format-date";
 import type { HeadroomResult } from "@/lib/engines/headroom";
 
-export type AttentionItemKind = "PROJECTED_SHORTFALL" | "OVERDUE_EMI";
+export type AttentionItemKind = "PROJECTED_SHORTFALL" | "OVERDUE_EMI" | "STALE_BALANCE";
 
 export type AttentionItem = {
   kind: AttentionItemKind;
@@ -89,11 +89,53 @@ export function detectOverdueEmis(
   });
 }
 
+export type StaleBalanceSourceKind = "ACCOUNT" | "ASSET";
+
+export type StaleBalanceSource = {
+  id: string;
+  name: string;
+  kind: StaleBalanceSourceKind;
+  /** `balanceAsOf` for an account, `valuationAsOf` for an asset. */
+  asOf: Date;
+};
+
+/** An account or asset figure this old is treated as too stale to trust the Headroom Number or net worth built on it. */
+export const STALE_BALANCE_THRESHOLD_DAYS = 14;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Flags any account or asset whose balance/valuation hasn't been touched
+ * in at least {@link STALE_BALANCE_THRESHOLD_DAYS} days. V0 has no bank
+ * sync — every figure is only as current as the last time it was manually
+ * updated — so this is the only honest way to warn that the Headroom
+ * Number or net worth may already be out of date.
+ */
+export function detectStaleBalances(sources: StaleBalanceSource[], now: Date): AttentionItem[] {
+  return sources.flatMap((source) => {
+    const daysStale = Math.floor((now.getTime() - source.asOf.getTime()) / MS_PER_DAY);
+    if (daysStale < STALE_BALANCE_THRESHOLD_DAYS) {
+      return [];
+    }
+    const noun = source.kind === "ACCOUNT" ? "balance" : "valuation";
+    return [
+      {
+        kind: "STALE_BALANCE" as const,
+        message: `${source.name}'s ${noun} hasn't been updated in ${daysStale} days — your numbers may be off.`,
+        amount: null,
+        date: source.asOf,
+        sourceId: source.id,
+      },
+    ];
+  });
+}
+
 /** Combines every detector and caps the result at three items, worst first. */
 export function detectAttentionItems(
   headroom: HeadroomResult,
   liabilities: LiabilityForOverdueCheck[],
   now: Date,
+  staleBalanceSources: StaleBalanceSource[] = [],
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -102,6 +144,7 @@ export function detectAttentionItems(
     items.push(shortfall);
   }
   items.push(...detectOverdueEmis(liabilities, now));
+  items.push(...detectStaleBalances(staleBalanceSources, now));
 
   return items.slice(0, 3);
 }

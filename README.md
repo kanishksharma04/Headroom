@@ -63,7 +63,7 @@ end-to-end smoke test.
 ```
 app/
   (auth)/           sign-in, sign-up
-  (app)/             today, ahead, worth, decide, records — the five screens
+  (app)/             today, ahead, worth, goals, decide, records — the six screens
   onboarding/        the one-time minimal setup flow
 lib/
   engines/           pure functions — every financial calculation lives here
@@ -114,16 +114,29 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   amortisation schedules, prepayment simulation (reduce-tenure or
   reduce-EMI), and the Section 24(b) tax-deduction-capped effective
   post-tax cost of debt.
-- **`decisions.ts`** — the Decide screen's two tools: prepay-vs-invest
+- **`decisions.ts`** — the Decide screen's four tools: prepay-vs-invest
   (compares a loan prepayment's guaranteed return against investing the same
-  lump sum at pessimistic/base/optimistic rates, post-capital-gains-tax) and
-  an affordability check (can a purchase happen without breaching your
-  emergency fund target or creating new shortfall risk).
+  lump sum at pessimistic/base/optimistic rates, post-capital-gains-tax); an
+  affordability check (can a purchase happen without breaching your
+  emergency fund target or creating new shortfall risk); an income-change
+  model (scales your salary commitment(s) and reruns a 90-day cash-flow
+  projection — deliberately not the Headroom Number, which excludes the
+  very salary occurrence that bounds its own window); and a job-loss
+  runway (projects how long your liquid balance lasts with every
+  commitment but salary still applied, plus a smooth daily draw-down of
+  your variable-spend estimate).
+- **`goals.ts`** — evaluates a savings goal against an inflation-adjusted
+  target: what your current pace projects to by the target date, the
+  monthly contribution that would close any gap, and an on-track / at-risk
+  / off-track status — all off the same compounding formula, walked
+  forward for a projection and solved for the months-to-target figure.
 - **`networth.ts`** — net worth and per-type allocation, plus attribution
   (splits a period's net worth change into contributions, market movement,
   principal repaid, and other, by diffing two snapshots).
-- **`attention.ts`** — flags a projected shortfall or an overdue EMI before
-  they become a surprise.
+- **`attention.ts`** — flags a projected shortfall, an overdue EMI, or an
+  account/asset balance that's gone stale (untouched for two weeks or
+  more — the Headroom Number and net worth are only as current as the
+  figures behind them) before they become a surprise.
 
 ## Money rules
 

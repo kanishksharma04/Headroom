@@ -3,8 +3,11 @@ import {
   detectAttentionItems,
   detectOverdueEmis,
   detectProjectedShortfall,
+  detectStaleBalances,
+  STALE_BALANCE_THRESHOLD_DAYS,
 } from "@/lib/engines/attention";
 import { calculateHeadroom, type HeadroomCommitmentInput } from "@/lib/engines/headroom";
+import { addDays } from "date-fns";
 import { istDate } from "@/lib/dates";
 
 function commitment(overrides: Partial<HeadroomCommitmentInput>): HeadroomCommitmentInput {
@@ -149,5 +152,64 @@ describe("detectAttentionItems", () => {
     );
 
     expect(items.length).toBeLessThanOrEqual(3);
+  });
+
+  it("appends stale-balance items after shortfall and overdue-EMI items, worst first", () => {
+    const now = istDate(2026, 0, 20);
+    const headroomResult = calculateHeadroom({
+      now,
+      accounts: [{ id: "acc-1", name: "Bank", currentBalance: "100000" }],
+      commitments: [],
+      variableSpendBaseline: null,
+    });
+
+    const items = detectAttentionItems(headroomResult, [], now, [
+      { id: "acc-1", name: "Bank", kind: "ACCOUNT", asOf: addDays(now, -20) },
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe("STALE_BALANCE");
+  });
+
+  it("defaults to no stale-balance sources when the fourth argument is omitted", () => {
+    const now = istDate(2026, 0, 20);
+    const headroomResult = calculateHeadroom({
+      now,
+      accounts: [{ id: "acc-1", name: "Bank", currentBalance: "100000" }],
+      commitments: [],
+      variableSpendBaseline: null,
+    });
+    expect(detectAttentionItems(headroomResult, [], now)).toHaveLength(0);
+  });
+});
+
+describe("detectStaleBalances", () => {
+  it("flags an account whose balance is at least the threshold old", () => {
+    const now = istDate(2026, 0, 20);
+    const items = detectStaleBalances(
+      [{ id: "acc-1", name: "Bank", kind: "ACCOUNT", asOf: addDays(now, -STALE_BALANCE_THRESHOLD_DAYS) }],
+      now,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].sourceId).toBe("acc-1");
+    expect(items[0].message).toContain("balance");
+  });
+
+  it("does not flag a balance just under the threshold", () => {
+    const now = istDate(2026, 0, 20);
+    const items = detectStaleBalances(
+      [{ id: "acc-1", name: "Bank", kind: "ACCOUNT", asOf: addDays(now, -(STALE_BALANCE_THRESHOLD_DAYS - 1)) }],
+      now,
+    );
+    expect(items).toHaveLength(0);
+  });
+
+  it("describes an asset as a valuation rather than a balance", () => {
+    const now = istDate(2026, 0, 20);
+    const items = detectStaleBalances(
+      [{ id: "asset-1", name: "Mutual Fund", kind: "ASSET", asOf: addDays(now, -30) }],
+      now,
+    );
+    expect(items[0].message).toContain("valuation");
   });
 });

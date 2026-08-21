@@ -6,18 +6,22 @@ import { listAccountsForUser } from "@/lib/services/account-service";
 import { listAssetsForUser } from "@/lib/services/asset-service";
 import { listLiabilitiesForUser } from "@/lib/services/liability-service";
 import { listCommitmentsForUser } from "@/lib/services/commitment-service";
+import { listGoalsForUser } from "@/lib/services/goal-service";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/validation/account";
 import { ASSET_TYPE_LABELS } from "@/lib/validation/asset";
 import { LIABILITY_TYPE_LABELS } from "@/lib/validation/liability";
 import { COMMITMENT_CATEGORY_LABELS, COMMITMENT_FREQUENCY_LABELS } from "@/lib/validation/commitment";
 import { toIstDateInputValue, todayIst } from "@/lib/dates";
+import { formatShortDate } from "@/lib/format-date";
 import { deleteAccountAction, deleteAssetAction, deleteLiabilityAction } from "@/app/(app)/worth/actions";
 import { deleteCommitmentAction } from "@/app/(app)/ahead/actions";
+import { deleteGoalAction } from "@/app/(app)/goals/actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { AccountForm } from "@/components/forms/account-form";
 import { AssetForm } from "@/components/forms/asset-form";
 import { LiabilityForm } from "@/components/forms/liability-form";
 import { CommitmentForm } from "@/components/forms/commitment-form";
+import { GoalForm } from "@/components/forms/goal-form";
 import { Money } from "@/components/money";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +30,7 @@ import type {
   Account,
   Asset,
   Commitment,
+  Goal,
   Liability,
 } from "@/lib/generated/prisma/client";
 
@@ -80,17 +85,19 @@ export default async function RecordsPage({
   const query = (q ?? "").trim().toLowerCase();
   const todayIso = toIstDateInputValue(todayIst());
 
-  const [accounts, assets, liabilities, commitments] = await Promise.all([
+  const [accounts, assets, liabilities, commitments, goals] = await Promise.all([
     listAccountsForUser(userId),
     listAssetsForUser(userId),
     listLiabilitiesForUser(userId),
     listCommitmentsForUser(userId),
+    listGoalsForUser(userId),
   ]);
 
   const filteredAccounts = accounts.filter((a) => matches(a.name, query));
   const filteredAssets = assets.filter((a) => matches(a.name, query));
   const filteredLiabilities = liabilities.filter((l) => matches(l.name, query));
   const filteredCommitments = commitments.filter((c) => matches(c.name, query));
+  const filteredGoals = goals.filter((g) => matches(g.name, query));
 
   const accountColumns: DataTableColumn<Account>[] = [
     { key: "name", header: "Name", render: (a) => a.name },
@@ -203,6 +210,32 @@ export default async function RecordsPage({
             <DeleteButton action={deleteCommitmentAction.bind(null, c.id)} label={`Delete ${c.name}`} />
           </div>
         ),
+    },
+  ];
+
+  const goalColumns: DataTableColumn<Goal>[] = [
+    { key: "name", header: "Name", render: (g) => g.name },
+    { key: "targetDate", header: "Target date", render: (g) => formatShortDate(g.targetDate) },
+    {
+      key: "target",
+      header: "Target amount",
+      align: "right",
+      render: (g) => <Money value={g.targetAmount} />,
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (g) => (
+        <div className="flex justify-end gap-1">
+          <EditToggle
+            href={g.id === edit ? buildHref({ q }) : buildHref({ q, edit: g.id })}
+            isOpen={g.id === edit}
+            name={g.name}
+          />
+          <DeleteButton action={deleteGoalAction.bind(null, g.id)} label={`Delete ${g.name}`} />
+        </div>
+      ),
     },
   ];
 
@@ -351,6 +384,38 @@ export default async function RecordsPage({
                     dayOfMonth: c.dayOfMonth,
                     endDate: c.endDate ? toIstDateInputValue(c.endDate) : null,
                     isVariable: c.isVariable,
+                  }}
+                />
+              </div>
+            )}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Goals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={goalColumns}
+            rows={filteredGoals}
+            getRowKey={(g) => g.id}
+            emptyMessage={query ? "No goals match your search." : "No goals yet."}
+            expandedRowKey={edit}
+            renderExpandedRow={(g) => (
+              <div className="max-w-md pt-4">
+                <GoalForm
+                  todayIso={todayIso}
+                  existing={{
+                    id: g.id,
+                    name: g.name,
+                    targetAmount: g.targetAmount.toString(),
+                    currentAmount: g.currentAmount.toString(),
+                    targetDate: toIstDateInputValue(g.targetDate),
+                    monthlyContribution: g.monthlyContribution.toString(),
+                    expectedAnnualReturnPercent: g.expectedAnnualReturnPercent.toString(),
+                    inflationPercent: g.inflationPercent.toString(),
                   }}
                 />
               </div>
