@@ -59,15 +59,17 @@ demo@headroom.app / headroom-demo
 
 Next.js 15+ (App Router, React Server Components, Server Actions), TypeScript
 strict, Tailwind + shadcn/ui, Prisma over Neon Postgres, Auth.js
-(email + password), Zod for all input validation, Recharts for the two
-charts in the product, Vitest for unit/integration tests, Playwright for the
-end-to-end smoke test.
+(email + password, optional TOTP two-factor), Zod for all input validation,
+Recharts for the two charts in the product, Vitest for unit/integration
+tests, Playwright for the end-to-end smoke test.
 
 ```
 app/
   (auth)/           sign-in, sign-up
   (app)/             today, ahead, worth, goals, decide, records — the six screens
+                      — plus /security, account management, not a seventh screen
   api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
+  api/cron/            the attention-digest cron trigger
   onboarding/        the one-time minimal setup flow
 lib/
   engines/           pure functions — every financial calculation lives here
@@ -75,6 +77,8 @@ lib/
   repositories/       thin Prisma query wrappers, one per model
   validation/         Zod schemas, one per form/entity
   export/              pure CSV formatters, consumed by the api/export route handlers
+  email/                digest email content + the Resend send wrapper
+  auth/                 TOTP and backup-code logic, consumed by auth-service.ts
   money.ts, dates.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
@@ -96,6 +100,24 @@ rather than a bundled PDF renderer, since the browser already does this
 well and it means one less dependency in the product. This is export
 only, deliberately — there's still no statement import or document
 storage, matching the "no document storage" principle above.
+
+### Two-factor authentication
+
+Optional TOTP, set up from the shield icon in the sidebar (`/security` —
+deliberately not one of the six screens, since it's account management, not
+a financial view). Sign-in with 2FA on is two round trips, not one extra
+field: submitting email + password alone returns a "needs a code" signal
+(checked by email lookup only, no password verification, so an ordinary
+sign-in never pays for a second bcrypt compare it doesn't need) and the
+form reveals a code input, resubmitting all three fields together — the
+password is still fully re-checked at that point, same as always.
+`lib/auth/totp.ts` and `lib/auth/backup-codes.ts` hold the pure
+generate/verify logic; `auth-service.ts` wires it to the database. Eight
+one-time backup codes are issued at enrolment and shown exactly once — one
+of the harder bugs caught while building this was a premature
+`revalidatePath` that swapped the enrolment screen out for the "turn it
+off" view before the user had ever seen them; the fix defers that refresh
+until the user explicitly acknowledges the codes.
 
 ### Attention digest
 

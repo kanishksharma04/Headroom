@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import { authConfig } from "@/lib/auth.config";
 import { findUserByEmail } from "@/lib/repositories/user-repository";
+import { verifyTwoFactorCode } from "@/lib/services/auth-service";
 import { signInSchema } from "@/lib/validation/auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -12,6 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email" },
         password: { label: "Password", type: "password" },
+        code: { label: "Code" },
       },
       async authorize(raw) {
         const parsed = signInSchema.safeParse(raw);
@@ -27,6 +29,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValidPassword = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!isValidPassword) {
           return null;
+        }
+
+        if (user.totpEnabled) {
+          if (!parsed.data.code || !(await verifyTwoFactorCode(user, parsed.data.code))) {
+            return null;
+          }
         }
 
         return { id: user.id, email: user.email, name: user.name };

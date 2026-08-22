@@ -3,10 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/components/nav-items";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AttentionBanner, type AttentionMessage } from "@/components/attention-banner";
+import { Button } from "@/components/ui/button";
+
+function SecurityLink() {
+  return (
+    <Button
+      render={<Link href="/security" />}
+      nativeButton={false}
+      variant="ghost"
+      size="icon"
+      aria-label="Security settings"
+    >
+      <Shield />
+    </Button>
+  );
+}
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -53,6 +69,7 @@ export function AppShell({
             })}
           </nav>
           <div className="flex items-center justify-between px-1 pt-4">
+            <SecurityLink />
             <ThemeToggle />
             {signOutSlot}
           </div>
@@ -62,6 +79,7 @@ export function AppShell({
           <header className="flex items-center justify-between border-b px-4 py-3 md:hidden print:hidden">
             <span className="text-sm font-medium tracking-tight">Headroom</span>
             <div className="flex items-center gap-1">
+              <SecurityLink />
               <ThemeToggle />
               {signOutSlot}
             </div>

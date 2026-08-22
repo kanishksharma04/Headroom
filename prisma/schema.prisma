@@ -102,6 +102,13 @@ model User {
   taxRegime                 TaxRegime @default(NEW)
   salaryDayOfMonth          Int?
   emergencyFundTargetMonths Int       @default(6)
+  /// Base32 TOTP secret. Set as soon as setup begins, but only trusted for
+  /// sign-in once totpEnabled is true — see auth-service.ts.
+  totpSecret                String?
+  totpEnabled               Boolean   @default(false)
+  /// Bcrypt hashes of one-time backup codes, shown to the user once at
+  /// enrolment. Each is removed from this list the moment it's used.
+  totpBackupCodeHashes      String[]  @default([])
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
 
