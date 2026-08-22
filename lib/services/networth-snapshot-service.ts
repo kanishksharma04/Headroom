@@ -54,11 +54,21 @@ export async function captureNetWorthSnapshotForUser(userId: string, now: Date):
   });
 }
 
-export type NetWorthHistoryPoint = { date: Date; netWorth: Money };
+export type NetWorthHistoryPoint = {
+  date: Date;
+  netWorth: Money;
+  totalAssets: Money;
+  totalLiabilities: Money;
+};
 
 export async function getNetWorthHistoryForUser(userId: string): Promise<NetWorthHistoryPoint[]> {
   const snapshots = await findNetWorthSnapshotsByUserId(userId);
-  return snapshots.map((s) => ({ date: s.capturedAt, netWorth: toMoney(s.netWorth) }));
+  return snapshots.map((s) => ({
+    date: s.capturedAt,
+    netWorth: toMoney(s.netWorth),
+    totalAssets: toMoney(s.totalAssets),
+    totalLiabilities: toMoney(s.totalLiabilities),
+  }));
 }
 
 function snapshotToEngineInput(snapshot: NetWorthSnapshotRecord) {

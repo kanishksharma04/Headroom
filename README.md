@@ -64,12 +64,14 @@ end-to-end smoke test.
 app/
   (auth)/           sign-in, sign-up
   (app)/             today, ahead, worth, goals, decide, records — the six screens
+  api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
   onboarding/        the one-time minimal setup flow
 lib/
   engines/           pure functions — every financial calculation lives here
   services/           orchestrates repositories + engines for a use case
   repositories/       thin Prisma query wrappers, one per model
   validation/         Zod schemas, one per form/entity
+  export/              pure CSV formatters, consumed by the api/export route handlers
   money.ts, dates.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
@@ -80,6 +82,17 @@ e2e/                  Playwright smoke test
 Screens read through `services`, which combine `repositories` (data) with
 `engines` (calculation) and return plain, already-computed view data — no
 financial arithmetic happens in a React component or a route handler.
+
+### Data export
+
+There's no bank sync, so getting your own numbers back out matters:
+**Worth** has a CSV export of your full net worth history, and every
+liability has a CSV export of its full amortisation schedule plus a
+print-friendly page for it — use the browser's own "Print → Save as PDF"
+rather than a bundled PDF renderer, since the browser already does this
+well and it means one less dependency in the product. This is export
+only, deliberately — there's still no statement import or document
+storage, matching the "no document storage" principle above.
 
 ### The domain model
 

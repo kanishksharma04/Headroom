@@ -13,6 +13,7 @@ import {
 import { NotFoundError } from "@/lib/services/account-service";
 import { captureNetWorthSnapshotForUser } from "@/lib/services/networth-snapshot-service";
 import { deriveEmiCommitmentFields } from "@/lib/engines/commitments";
+import { generateAmortisationSchedule, type AmortisationSchedule } from "@/lib/engines/amortisation";
 import type { LiabilityFormInput } from "@/lib/validation/liability";
 import type { Liability } from "@/lib/generated/prisma/client";
 
@@ -127,4 +128,26 @@ export async function removeLiabilityForUser(userId: string, liabilityId: string
   // relation in prisma/schema.prisma.
   await deleteLiability(liabilityId);
   await captureNetWorthSnapshotForUser(userId, new Date());
+}
+
+/**
+ * The full amortisation schedule from the loan's original sanctioned
+ * principal and first instalment — not the remaining schedule from today's
+ * outstanding balance. Recorded prepayments aren't factored in: there's no
+ * way to log one anywhere in the app yet, so there's nothing to account
+ * for in practice.
+ */
+export async function getAmortisationScheduleForLiability(
+  userId: string,
+  liabilityId: string,
+): Promise<{ liability: Liability; schedule: AmortisationSchedule }> {
+  const liability = await requireOwnedLiability(userId, liabilityId);
+  const emiFields = deriveEmiCommitmentFields(liability);
+  const schedule = generateAmortisationSchedule({
+    principal: liability.principalAmount,
+    annualRatePercent: liability.annualInterestRatePercent,
+    tenureMonths: liability.tenureMonths,
+    firstDueDate: emiFields.anchorDate,
+  });
+  return { liability, schedule };
 }

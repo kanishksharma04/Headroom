@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Download, FileText, Trash2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getWorthOverviewForUser } from "@/lib/services/worth-service";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/validation/account";
@@ -63,8 +64,16 @@ export default async function WorthPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
           <CardTitle>History</CardTitle>
+          <Button
+            render={<a href="/api/export/net-worth-history" />}
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+          >
+            <Download /> Export CSV
+          </Button>
         </CardHeader>
         <CardContent>
           {chartData.length < 2 ? (
@@ -218,6 +227,15 @@ export default async function WorthPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <Money value={liability.outstandingPrincipal} className="text-sm font-medium" />
+                            <Button
+                              render={<Link href={`/worth/liabilities/${liability.id}/schedule`} />}
+                              nativeButton={false}
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`View ${liability.name}'s amortisation schedule`}
+                            >
+                              <FileText />
+                            </Button>
                             <form action={deleteLiabilityAction.bind(null, liability.id)}>
                               <Button
                                 variant="ghost"

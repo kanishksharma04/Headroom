@@ -25,9 +25,11 @@ export function AppShell({
 
   return (
     <div className="flex flex-1 flex-col">
-      <AttentionBanner items={attentionItems} />
+      <div className="print:hidden">
+        <AttentionBanner items={attentionItems} />
+      </div>
       <div className="flex flex-1 flex-col md:flex-row">
-        <aside className="hidden w-56 shrink-0 flex-col border-r px-3 py-6 md:flex">
+        <aside className="hidden w-56 shrink-0 flex-col border-r px-3 py-6 md:flex print:hidden">
           <span className="mb-8 px-3 text-sm font-medium tracking-tight">Headroom</span>
           <nav className="flex flex-1 flex-col gap-1">
             {NAV_ITEMS.map((item) => {
@@ -57,7 +59,7 @@ export function AppShell({
         </aside>
 
         <div className="flex flex-1 flex-col">
-          <header className="flex items-center justify-between border-b px-4 py-3 md:hidden">
+          <header className="flex items-center justify-between border-b px-4 py-3 md:hidden print:hidden">
             <span className="text-sm font-medium tracking-tight">Headroom</span>
             <div className="flex items-center gap-1">
               <ThemeToggle />
@@ -65,9 +67,9 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
+          <main className="flex flex-1 flex-col pb-16 md:pb-0 print:pb-0">{children}</main>
 
-          <nav className="bg-background fixed inset-x-0 bottom-0 flex border-t md:hidden">
+          <nav className="bg-background fixed inset-x-0 bottom-0 flex border-t md:hidden print:hidden">
             {NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href);
               return (
