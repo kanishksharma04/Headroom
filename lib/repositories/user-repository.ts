@@ -13,6 +13,10 @@ export function findUserByEmail(email: string): Promise<User | null> {
   return prisma.user.findUnique({ where: { email } });
 }
 
+export function findAllUsers(): Promise<User[]> {
+  return prisma.user.findMany();
+}
+
 export function updateUser(id: string, data: Prisma.UserUpdateInput): Promise<User> {
   return prisma.user.update({ where: { id }, data });
 }

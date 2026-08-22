@@ -34,11 +34,14 @@ demo@headroom.app / headroom-demo
 
 ### Environment variables
 
-| Variable       | Purpose                                                        |
-| -------------- | ---------------------------------------------------------------- |
-| `DATABASE_URL` | Postgres connection string (Neon in production).                 |
-| `AUTH_SECRET`  | Auth.js session secret — generate with `npx auth secret`.        |
-| `AUTH_URL`     | The app's canonical URL (e.g. `http://localhost:3000`).          |
+| Variable         | Purpose                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `DATABASE_URL`   | Postgres connection string (Neon in production).                               |
+| `AUTH_SECRET`    | Auth.js session secret — generate with `npx auth secret`.                      |
+| `AUTH_URL`       | The app's canonical URL (e.g. `http://localhost:3000`).                        |
+| `RESEND_API_KEY` | Optional. Enables the daily attention digest email; unset means it's skipped.   |
+| `EMAIL_FROM`     | Optional. Digest sender address, e.g. `Headroom <notifications@headroom.app>`.  |
+| `CRON_SECRET`    | Required in production to authorise `/api/cron/attention-digest`.              |
 
 ### Scripts
 
@@ -93,6 +96,20 @@ rather than a bundled PDF renderer, since the browser already does this
 well and it means one less dependency in the product. This is export
 only, deliberately — there's still no statement import or document
 storage, matching the "no document storage" principle above.
+
+### Attention digest
+
+The in-app attention banner (a projected shortfall, an overdue EMI, a
+stale balance) only reaches someone who opens the app.
+`/api/cron/attention-digest`, triggered daily by Vercel Cron (see
+`vercel.json`), runs the same `detectAttentionItems` check for every
+user and emails only the ones who have something flagged — a quiet day
+sends nothing, never an "all clear" message. Email delivery is via
+[Resend](https://resend.com); with no `RESEND_API_KEY` set, the send
+silently no-ops so local dev and not-yet-configured deployments keep
+working. There's no push-notification delivery alongside it yet — that
+needs a PWA shell (a manifest, a service worker) this app doesn't have,
+so it was left for later rather than half-built now.
 
 ### The domain model
 
