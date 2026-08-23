@@ -134,6 +134,20 @@ of the harder bugs caught while building this was a premature
 off" view before the user had ever seen them; the fix defers that refresh
 until the user explicitly acknowledges the codes.
 
+### Installable (PWA)
+
+Today is a daily-glance screen, so home-screen installability is worth
+having: `app/manifest.ts` (served at `/manifest.webmanifest`, Next's own
+convention) declares `start_url: "/today"` and `display: "standalone"`,
+`app/icon.png` / `app/apple-icon.png` cover the browser-tab and iOS
+home-screen icons, and `public/sw.js` is a minimal service worker —
+install-criteria plumbing only, deliberately caching nothing, since
+serving a stale Headroom Number or balance while offline would be
+actively misleading for a "verified precisely" app. The icons themselves
+are generated once via `next/og`'s `ImageResponse` rather than hand-built
+in a design tool — a plain ₹ on the same indigo the Headroom Number
+itself renders in.
+
 ### Attention digest
 
 The in-app attention banner (a projected shortfall, an overdue EMI, a
