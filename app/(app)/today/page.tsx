@@ -53,7 +53,10 @@ export default async function TodayPage() {
     );
   }
 
-  const { headroom, netWorth, upcomingCommitments } = overview;
+  const { headroom, netWorth, netWorthOwnershipSplit, upcomingCommitments } = overview;
+  const hasJointHoldings =
+    !netWorthOwnershipSplit.joint.totalAssets.isZero() ||
+    !netWorthOwnershipSplit.joint.totalLiabilities.isZero();
 
   const committed = sum(
     headroom.lines
@@ -158,7 +161,18 @@ export default async function TodayPage() {
       ) : null}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Net worth" value={<Money value={netWorth.netWorth} shorthand colorize />} />
+        <StatCard
+          label="Net worth"
+          value={<Money value={netWorth.netWorth} shorthand colorize />}
+          delta={
+            hasJointHoldings ? (
+              <>
+                <Money value={netWorthOwnershipSplit.individual.netWorth} shorthand /> yours ·{" "}
+                <Money value={netWorthOwnershipSplit.joint.netWorth} shorthand /> joint
+              </>
+            ) : undefined
+          }
+        />
       </section>
     </div>
   );

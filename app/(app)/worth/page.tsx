@@ -39,8 +39,10 @@ export default async function WorthPage() {
     redirect("/sign-in");
   }
 
-  const { netWorth, accounts, assets, liabilities, history, attribution } =
+  const { netWorth, ownershipSplit, accounts, assets, liabilities, history, attribution } =
     await getWorthOverviewForUser(userId);
+  const hasJointHoldings =
+    !ownershipSplit.joint.totalAssets.isZero() || !ownershipSplit.joint.totalLiabilities.isZero();
 
   const todayIso = toIstDateInputValue(todayIst());
   const assetGroups = groupByType<Asset>(assets);
@@ -62,6 +64,43 @@ export default async function WorthPage() {
         <StatCard label="Total assets" value={<Money value={netWorth.totalAssets} shorthand />} />
         <StatCard label="Total liabilities" value={<Money value={netWorth.totalLiabilities} shorthand />} />
       </div>
+
+      {hasJointHoldings ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>By ownership</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-6">
+              {(
+                [
+                  ["Individual", ownershipSplit.individual],
+                  ["Joint", ownershipSplit.joint],
+                ] as const
+              ).map(([label, result]) => (
+                <div key={label}>
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
+                    <Money value={result.netWorth} shorthand colorize />
+                  </p>
+                  <div className="text-muted-foreground mt-2 flex flex-col gap-1 text-xs">
+                    <div className="flex justify-between">
+                      <span>Assets</span>
+                      <Money value={result.totalAssets} shorthand />
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Liabilities</span>
+                      <Money value={result.totalLiabilities} shorthand />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -223,6 +262,7 @@ export default async function WorthPage() {
                             <p className="text-sm font-medium">{liability.name}</p>
                             <p className="text-muted-foreground text-xs">
                               {liability.annualInterestRatePercent.toString()}%
+                              {liability.isJoint ? " · Joint" : ""}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">

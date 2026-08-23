@@ -146,6 +146,7 @@ function parseLiabilityForm(formData: FormData) {
     prepaymentPenaltyPercent: formData.get("prepaymentPenaltyPercent"),
     isTaxDeductible: formData.get("isTaxDeductible") === "on",
     isSelfOccupied: formData.get("isSelfOccupied") === "on",
+    isJoint: formData.get("isJoint") === "on",
   });
 }
 

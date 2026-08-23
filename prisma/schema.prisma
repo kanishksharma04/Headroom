@@ -172,6 +172,7 @@ model Liability {
   prepaymentPenaltyPercent  Decimal?      @db.Decimal(6, 3)
   isTaxDeductible           Boolean       @default(false)
   isSelfOccupied            Boolean       @default(true)
+  isJoint                   Boolean       @default(false)
   createdAt                 DateTime      @default(now())
   updatedAt                 DateTime      @updatedAt
 

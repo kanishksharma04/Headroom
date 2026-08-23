@@ -121,6 +121,7 @@ export async function completeOnboardingAction(
       prepaymentPenaltyPercent: undefined,
       isTaxDeductible: false,
       isSelfOccupied: true,
+      isJoint: false,
     });
   }
 

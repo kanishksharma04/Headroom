@@ -1,4 +1,11 @@
-import { allocationByType, calculateNetWorth, type AllocationEntry, type NetWorthResult } from "@/lib/engines/networth";
+import {
+  allocationByType,
+  calculateNetWorth,
+  splitNetWorthByOwnership,
+  type AllocationEntry,
+  type NetWorthOwnershipSplit,
+  type NetWorthResult,
+} from "@/lib/engines/networth";
 import { findAccountsByUserId } from "@/lib/repositories/account-repository";
 import { findAssetsByUserId } from "@/lib/repositories/asset-repository";
 import { findLiabilitiesByUserId } from "@/lib/repositories/liability-repository";
@@ -12,6 +19,7 @@ import type { Account, AssetType, Asset, Liability, LiabilityType } from "@/lib/
 
 export type WorthOverview = {
   netWorth: NetWorthResult;
+  ownershipSplit: NetWorthOwnershipSplit;
   accounts: Account[];
   assets: Asset[];
   liabilities: Liability[];
@@ -35,9 +43,18 @@ export async function getWorthOverviewForUser(userId: string): Promise<WorthOver
     assets: assets.map((a) => ({ currentValue: a.currentValue })),
     liabilities: liabilities.map((l) => ({ outstandingPrincipal: l.outstandingPrincipal })),
   });
+  const ownershipSplit = splitNetWorthByOwnership({
+    accounts: accounts.map((a) => ({ currentBalance: a.currentBalance, isJoint: a.isJoint })),
+    assets: assets.map((a) => ({ currentValue: a.currentValue, isJoint: a.isJoint })),
+    liabilities: liabilities.map((l) => ({
+      outstandingPrincipal: l.outstandingPrincipal,
+      isJoint: l.isJoint,
+    })),
+  });
 
   return {
     netWorth,
+    ownershipSplit,
     accounts,
     assets,
     liabilities,

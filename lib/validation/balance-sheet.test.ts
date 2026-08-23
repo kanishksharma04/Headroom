@@ -100,6 +100,7 @@ describe("liabilityFormSchema", () => {
       prepaymentPenaltyPercent: "",
       isTaxDeductible: true,
       isSelfOccupied: true,
+      isJoint: false,
     });
     expect(result.success).toBe(true);
   });
@@ -118,6 +119,7 @@ describe("liabilityFormSchema", () => {
       outstandingAsOf: "2026-08-15",
       isTaxDeductible: true,
       isSelfOccupied: true,
+      isJoint: false,
     });
     expect(result.success).toBe(false);
   });
@@ -136,6 +138,7 @@ describe("liabilityFormSchema", () => {
       outstandingAsOf: "2026-08-15",
       isTaxDeductible: true,
       isSelfOccupied: true,
+      isJoint: false,
     });
     expect(result.success).toBe(false);
   });

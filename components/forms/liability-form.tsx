@@ -32,6 +32,7 @@ export type ExistingLiability = {
   prepaymentPenaltyPercent: string | null;
   isTaxDeductible: boolean;
   isSelfOccupied: boolean;
+  isJoint: boolean;
 };
 
 export function LiabilityForm({
@@ -193,6 +194,10 @@ export function LiabilityForm({
         <label className="flex items-center gap-2 text-sm">
           <Checkbox name="isSelfOccupied" defaultChecked={existing?.isSelfOccupied ?? true} />
           Self-occupied property
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox name="isJoint" defaultChecked={existing?.isJoint} />
+          Joint loan
         </label>
       </div>
 

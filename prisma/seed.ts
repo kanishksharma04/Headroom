@@ -62,6 +62,7 @@ async function main() {
     prepaymentPenaltyPercent: undefined,
     isTaxDeductible: true,
     isSelfOccupied: true,
+    isJoint: true,
   });
 
   // Income.

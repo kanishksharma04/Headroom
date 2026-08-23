@@ -23,6 +23,40 @@ export function calculateNetWorth(input: NetWorthInput): NetWorthResult {
   return { totalAssets, totalLiabilities, netWorth: totalAssets.minus(totalLiabilities) };
 }
 
+export type OwnershipSplitInput = {
+  accounts: { currentBalance: Decimal.Value; isJoint: boolean }[];
+  assets: { currentValue: Decimal.Value; isJoint: boolean }[];
+  liabilities: { outstandingPrincipal: Decimal.Value; isJoint: boolean }[];
+};
+
+export type NetWorthOwnershipSplit = {
+  individual: NetWorthResult;
+  joint: NetWorthResult;
+};
+
+/**
+ * Splits net worth into what's held individually vs. jointly, using each
+ * account/asset/liability's own isJoint flag — including liabilities: a
+ * joint home loan deducted entirely from the individual half would
+ * understate it and overstate the joint half, so a liability's ownership
+ * matters exactly as much as an asset's. Each half is computed with the
+ * same calculateNetWorth used for the combined total, so
+ * individual.netWorth + joint.netWorth always equals it exactly.
+ */
+export function splitNetWorthByOwnership(input: OwnershipSplitInput): NetWorthOwnershipSplit {
+  const individual = calculateNetWorth({
+    accounts: input.accounts.filter((a) => !a.isJoint),
+    assets: input.assets.filter((a) => !a.isJoint),
+    liabilities: input.liabilities.filter((l) => !l.isJoint),
+  });
+  const joint = calculateNetWorth({
+    accounts: input.accounts.filter((a) => a.isJoint),
+    assets: input.assets.filter((a) => a.isJoint),
+    liabilities: input.liabilities.filter((l) => l.isJoint),
+  });
+  return { individual, joint };
+}
+
 export type AllocationEntry<TType extends string> = {
   type: TType;
   value: Money;

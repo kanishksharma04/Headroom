@@ -3,6 +3,7 @@ import {
   allocationByType,
   attributeNetWorthChange,
   calculateNetWorth,
+  splitNetWorthByOwnership,
   type NetWorthSnapshot,
 } from "@/lib/engines/networth";
 
@@ -32,6 +33,63 @@ describe("calculateNetWorth", () => {
   it("is zero with nothing to account for", () => {
     const result = calculateNetWorth({ accounts: [], assets: [], liabilities: [] });
     expect(result.netWorth.toFixed(2)).toBe("0.00");
+  });
+});
+
+describe("splitNetWorthByOwnership", () => {
+  it("puts a joint home loan against joint assets, not individual ones", () => {
+    const split = splitNetWorthByOwnership({
+      accounts: [{ currentBalance: "184230", isJoint: false }],
+      assets: [{ currentValue: "620000", isJoint: false }], // individual EPF
+      liabilities: [{ outstandingPrincipal: "3840000", isJoint: true }], // joint home loan
+    });
+
+    // The individual half owes nothing on the joint loan — it's not netted
+    // against personal savings at all.
+    expect(split.individual.netWorth.toFixed(2)).toBe((184230 + 620000).toFixed(2));
+    expect(split.individual.totalLiabilities.toFixed(2)).toBe("0.00");
+    // The joint half is entirely the loan, with nothing to offset it.
+    expect(split.joint.netWorth.toFixed(2)).toBe("-3840000.00");
+    expect(split.joint.totalAssets.toFixed(2)).toBe("0.00");
+  });
+
+  it("individual + joint net worth always equals the combined total", () => {
+    const input = {
+      accounts: [
+        { currentBalance: "85000", isJoint: false },
+        { currentBalance: "35000", isJoint: true },
+      ],
+      assets: [
+        { currentValue: "620000", isJoint: false },
+        { currentValue: "380000", isJoint: true },
+      ],
+      liabilities: [
+        { outstandingPrincipal: "3840000", isJoint: true },
+        { outstandingPrincipal: "50000", isJoint: false },
+      ],
+    };
+    const split = splitNetWorthByOwnership(input);
+    const combined = calculateNetWorth(input);
+
+    expect(split.individual.netWorth.plus(split.joint.netWorth).toFixed(2)).toBe(
+      combined.netWorth.toFixed(2),
+    );
+  });
+
+  it("is all-individual when nothing is flagged joint", () => {
+    const split = splitNetWorthByOwnership({
+      accounts: [{ currentBalance: "100000", isJoint: false }],
+      assets: [],
+      liabilities: [],
+    });
+    expect(split.individual.netWorth.toFixed(2)).toBe("100000.00");
+    expect(split.joint.netWorth.toFixed(2)).toBe("0.00");
+  });
+
+  it("is zero on both sides with nothing at all", () => {
+    const split = splitNetWorthByOwnership({ accounts: [], assets: [], liabilities: [] });
+    expect(split.individual.netWorth.toFixed(2)).toBe("0.00");
+    expect(split.joint.netWorth.toFixed(2)).toBe("0.00");
   });
 });
 

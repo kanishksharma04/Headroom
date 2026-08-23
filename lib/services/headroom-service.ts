@@ -4,7 +4,12 @@ import {
   type AttentionItem,
   type StaleBalanceSource,
 } from "@/lib/engines/attention";
-import { calculateNetWorth, type NetWorthResult } from "@/lib/engines/networth";
+import {
+  calculateNetWorth,
+  splitNetWorthByOwnership,
+  type NetWorthOwnershipSplit,
+  type NetWorthResult,
+} from "@/lib/engines/networth";
 import { findAccountsByUserId } from "@/lib/repositories/account-repository";
 import { findAssetsByUserId } from "@/lib/repositories/asset-repository";
 import { findLiabilitiesByUserId } from "@/lib/repositories/liability-repository";
@@ -15,6 +20,7 @@ import type { Commitment } from "@/lib/generated/prisma/client";
 export type TodayOverview = {
   headroom: HeadroomResult;
   netWorth: NetWorthResult;
+  netWorthOwnershipSplit: NetWorthOwnershipSplit;
   upcomingCommitments: Array<{
     id: string;
     label: string;
@@ -62,6 +68,14 @@ export async function getTodayOverviewForUser(userId: string, now: Date): Promis
     assets: assets.map((a) => ({ currentValue: a.currentValue })),
     liabilities: liabilities.map((l) => ({ outstandingPrincipal: l.outstandingPrincipal })),
   });
+  const netWorthOwnershipSplit = splitNetWorthByOwnership({
+    accounts: accounts.map((a) => ({ currentBalance: a.currentBalance, isJoint: a.isJoint })),
+    assets: assets.map((a) => ({ currentValue: a.currentValue, isJoint: a.isJoint })),
+    liabilities: liabilities.map((l) => ({
+      outstandingPrincipal: l.outstandingPrincipal,
+      isJoint: l.isJoint,
+    })),
+  });
 
   const upcomingCommitments = headroom.lines
     .filter((line): line is typeof line & { date: Date } => line.date !== null && line.kind !== "BALANCE")
@@ -91,5 +105,5 @@ export async function getTodayOverviewForUser(userId: string, now: Date): Promis
     staleBalanceSources,
   );
 
-  return { headroom, netWorth, upcomingCommitments, attentionItems };
+  return { headroom, netWorth, netWorthOwnershipSplit, upcomingCommitments, attentionItems };
 }

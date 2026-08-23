@@ -350,6 +350,7 @@ export default async function RecordsPage({
                     prepaymentPenaltyPercent: l.prepaymentPenaltyPercent?.toString() ?? null,
                     isTaxDeductible: l.isTaxDeductible,
                     isSelfOccupied: l.isSelfOccupied,
+                    isJoint: l.isJoint,
                   }}
                 />
               </div>

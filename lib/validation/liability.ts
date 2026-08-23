@@ -39,6 +39,7 @@ export const liabilityFormSchema = z.object({
   prepaymentPenaltyPercent: optionalPercentStringSchema({ max: 100 }),
   isTaxDeductible: z.boolean(),
   isSelfOccupied: z.boolean(),
+  isJoint: z.boolean(),
 });
 
 export type LiabilityFormInput = z.infer<typeof liabilityFormSchema>;

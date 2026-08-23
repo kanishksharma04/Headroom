@@ -162,6 +162,20 @@ working. There's no push-notification delivery alongside it yet — that
 needs a PWA shell (a manifest, a service worker) this app doesn't have,
 so it was left for later rather than half-built now.
 
+### Joint vs. individual net worth
+
+`isJoint` lives on `Account` and `Asset` (and now `Liability` too — a
+joint home loan deducted entirely from one person's individual total
+would understate it and overstate the joint side, so a liability's
+ownership matters exactly as much as an asset's). `splitNetWorthByOwnership`
+in `networth.ts` partitions the same `calculateNetWorth` computation
+by that flag; `individual.netWorth + joint.netWorth` always equals the
+combined total exactly. Worth shows the full breakdown in a "By
+ownership" card; Today shows it as a one-line subtitle under the net
+worth figure. Both are hidden entirely when nothing is flagged
+joint — the common case shouldn't have to look at a "Joint: ₹0" row
+that never changes.
+
 ### The domain model
 
 `User` → `Account` (bank/cash), `Asset` (everything else you own),

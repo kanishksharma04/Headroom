@@ -82,6 +82,7 @@ export async function addLiabilityForUser(
     prepaymentPenaltyPercent: input.prepaymentPenaltyPercent ?? null,
     isTaxDeductible: input.isTaxDeductible,
     isSelfOccupied: input.isSelfOccupied,
+    isJoint: input.isJoint,
   });
   await syncEmiCommitment(userId, liability);
   await captureNetWorthSnapshotForUser(userId, new Date());
@@ -116,6 +117,7 @@ export async function editLiabilityForUser(
     prepaymentPenaltyPercent: input.prepaymentPenaltyPercent ?? null,
     isTaxDeductible: input.isTaxDeductible,
     isSelfOccupied: input.isSelfOccupied,
+    isJoint: input.isJoint,
   });
   await syncEmiCommitment(userId, liability);
   await captureNetWorthSnapshotForUser(userId, new Date());
