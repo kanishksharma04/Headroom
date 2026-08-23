@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { listAccountsForUser } from "@/lib/services/account-service";
@@ -27,6 +28,13 @@ export default async function OnboardingPage() {
         </p>
       </div>
       <OnboardingForm todayIso={toIstDateInputValue(todayIst())} />
+      <p className="text-muted-foreground text-center text-sm">
+        Have a bank statement handy?{" "}
+        <Link href="/onboarding/import" className="text-foreground font-medium underline-offset-4 hover:underline">
+          Import it as a CSV
+        </Link>{" "}
+        to prefill your account and recurring payments.
+      </p>
     </div>
   );
 }

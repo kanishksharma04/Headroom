@@ -70,13 +70,14 @@ app/
                       — plus /security, account management, not a seventh screen
   api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
   api/cron/            the attention-digest cron trigger
-  onboarding/        the one-time minimal setup flow
+  onboarding/        the one-time minimal setup flow, plus onboarding/import for the CSV path
 lib/
   engines/           pure functions — every financial calculation lives here
   services/           orchestrates repositories + engines for a use case
   repositories/       thin Prisma query wrappers, one per model
   validation/         Zod schemas, one per form/entity
   export/              pure CSV formatters, consumed by the api/export route handlers
+  import/               statement CSV parsing + recurring-payment detection, onboarding only
   email/                digest email content + the Resend send wrapper
   auth/                 TOTP and backup-code logic, consumed by auth-service.ts
   money.ts, dates.ts, format-*.ts   shared primitives
@@ -97,9 +98,23 @@ There's no bank sync, so getting your own numbers back out matters:
 liability has a CSV export of its full amortisation schedule plus a
 print-friendly page for it — use the browser's own "Print → Save as PDF"
 rather than a bundled PDF renderer, since the browser already does this
-well and it means one less dependency in the product. This is export
-only, deliberately — there's still no statement import or document
-storage, matching the "no document storage" principle above.
+well and it means one less dependency in the product.
+
+### Statement import (onboarding only)
+
+The one exception to "export, not import": `/onboarding/import` reads a
+bank statement CSV to prefill onboarding — a current balance, and any
+payment that repeats on a consistent interval at a consistent amount
+(rent, an EMI, a subscription), pattern-matched by `lib/import/`
+(`statement-csv.ts` parses rows; `detect-commitments.ts` groups and
+classifies them by keyword). This is *not* the "full statement analysis"
+the product deliberately avoids — a one-off UPI payment or ATM
+withdrawal never repeats with a matching description, so it never
+becomes a suggestion, and every suggestion is shown for review, never
+saved automatically. The uploaded file itself is parsed in memory for
+the one request and never stored, matching the "no document storage"
+principle above — only the numbers the user actually confirms end up in
+the database.
 
 ### Two-factor authentication
 
