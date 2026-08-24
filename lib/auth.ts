@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { authConfig } from "@/lib/auth.config";
 import { findUserByEmail } from "@/lib/repositories/user-repository";
 import { verifyTwoFactorCode } from "@/lib/services/auth-service";
+import { clearLoginAttempts } from "@/lib/services/login-rate-limit-service";
 import { signInSchema } from "@/lib/validation/auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -36,6 +37,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
         }
+
+        // Past failed attempts shouldn't count against future legitimate
+        // access. Done here, not in the calling Server Action, since a
+        // successful signIn() redirects internally — this is the one place
+        // guaranteed to run to completion first.
+        await clearLoginAttempts(user.email);
 
         return { id: user.id, email: user.email, name: user.name };
       },

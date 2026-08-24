@@ -164,7 +164,10 @@ A `Liability`'s EMI is mirrored into a linked `Commitment` automatically, so
 it never has to be entered twice. `NetWorthSnapshot` captures the full
 balance sheet once per day, on every mutation — it's the only source of
 history the app has, and it's what powers the net worth chart and the
-"what changed and why" attribution on the Worth screen.
+"what changed and why" attribution on the Worth screen. `LoginAttempt` sits
+outside this `User`-owned hierarchy entirely — it's keyed by the raw email
+string submitted at sign-in, not a `User` relation, so the sign-in rate
+limiter works even against an email with no account at all.
 
 ### The engines (`lib/engines/`)
 
@@ -247,6 +250,17 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   Claude each turn so a long-lived conversation's context doesn't grow
   unboundedly, even though the page itself shows full history.
   (`lib/ai/assistant-tools.ts`, `lib/services/assistant-service.ts`)
+- **Sign-in is rate-limited per email, not per IP.** An attacker who
+  already has (or is guessing at) one specific account's password cares
+  about that account regardless of how many IPs they attempt from — so
+  the limiter counts recent failures against the submitted email itself
+  (10 password attempts / 15 minutes; a stricter 5 for the TOTP/backup-code
+  round, since that's the higher-value target). It works even for emails
+  with no account, since `LoginAttempt` isn't tied to a `User` row. Checked
+  before `signIn()` runs, so a locked-out email costs neither a bcrypt
+  compare nor a TOTP check; cleared on a successful sign-in from inside
+  `authorize()` itself, the one place guaranteed to run to completion
+  before Auth.js's redirect fires. (`lib/services/login-rate-limit-service.ts`)
 
 ## Money rules
 

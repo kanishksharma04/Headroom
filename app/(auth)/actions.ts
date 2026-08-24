@@ -5,6 +5,11 @@ import { signIn } from "@/lib/auth";
 import { findUserByEmail } from "@/lib/repositories/user-repository";
 import { signInSchema, signUpSchema } from "@/lib/validation/auth";
 import { EmailAlreadyRegisteredError, registerUser } from "@/lib/services/auth-service";
+import {
+  assertLoginAttemptAllowed,
+  LoginRateLimitError,
+  recordFailedLoginAttempt,
+} from "@/lib/services/login-rate-limit-service";
 
 export type AuthFormState = { error?: string; needsTotp?: boolean };
 
@@ -36,7 +41,22 @@ export async function signInAction(
     }
   }
 
+  const attemptKind = parsed.data.code ? "TOTP" : "CREDENTIALS";
   try {
+    await assertLoginAttemptAllowed(parsed.data.email, attemptKind);
+  } catch (error) {
+    if (error instanceof LoginRateLimitError) {
+      return parsed.data.code ? { needsTotp: true, error: error.message } : { error: error.message };
+    }
+    throw error;
+  }
+
+  try {
+    // On success, signIn() redirects internally (it throws Next's redirect
+    // signal, caught by `throw error` below) — nothing after this call runs
+    // on that path. Clearing this email's failed-attempt history on success
+    // therefore happens inside authorize() itself (lib/auth.ts), the one
+    // place guaranteed to run to completion before that redirect fires.
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
@@ -45,6 +65,7 @@ export async function signInAction(
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      await recordFailedLoginAttempt(parsed.data.email, attemptKind);
       return parsed.data.code
         ? { needsTotp: true, error: "Incorrect email, password, or code." }
         : { error: "Incorrect email or password." };

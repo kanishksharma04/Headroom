@@ -280,6 +280,28 @@ model AssistantMessage {
   @@index([userId, createdAt])
 }
 
+enum LoginAttemptKind {
+  /// A password check (the sign-in form's first round trip).
+  CREDENTIALS
+  /// A TOTP or backup-code check (the second round trip, 2FA accounts only).
+  TOTP
+}
+
+/// One row per failed sign-in attempt, keyed by the raw email string
+/// rather than a User relation — a rate limiter has to work even for an
+/// email that doesn't belong to any account, or it's a weaker guard
+/// against exactly that guessing. Rows outside the rate limiter's own
+/// lookback window are inert and left to accumulate rather than swept,
+/// since a login table is naturally low-volume and self-limiting.
+model LoginAttempt {
+  id        String           @id @default(cuid())
+  email     String
+  kind      LoginAttemptKind
+  createdAt DateTime         @default(now())
+
+  @@index([email, kind, createdAt])
+}
+
 /// A point-in-time record of a user's full balance sheet, captured
 /// automatically whenever an account, asset or liability changes — one row
 /// per IST calendar day touched. Powers the net worth history chart and
