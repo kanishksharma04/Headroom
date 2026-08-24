@@ -285,9 +285,11 @@ since that's where financial correctness actually lives.
 
 ## Deploying
 
-Deploys to [Vercel](https://vercel.com) — see `vercel.json` (Mumbai region,
-`prisma migrate deploy` runs as part of the build, and a daily cron trigger
-for the attention digest). Before the first deploy, set in the project's
+Deploys to [Vercel](https://vercel.com) — see `vercel.json` (Mumbai region;
+the build explicitly runs `prisma generate` before `prisma migrate deploy`,
+rather than relying on Prisma's own install-script to generate the client,
+since Vercel's build image can gate package install scripts; a daily cron
+trigger handles the attention digest). Before the first deploy, set in the project's
 environment variables:
 
 - `DATABASE_URL` pointed at a Neon Postgres instance, `AUTH_SECRET`, and
