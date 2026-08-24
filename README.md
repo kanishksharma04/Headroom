@@ -7,9 +7,8 @@ accounted for — and helps you decide, with your actual numbers, whether to
 prepay a loan or invest instead.
 
 It deliberately does not do budgeting, gamification, a financial health
-score, AI chat, document storage, or investment research/execution. The
-discipline is the product: a small number of numbers, verified precisely,
-shown clearly.
+score, AI chat, or document storage. The discipline is the product: a small
+number of numbers, verified precisely, shown clearly.
 
 ## Getting started
 
@@ -25,8 +24,9 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Sign up for a fresh
-account (you'll land in a short onboarding flow), or sign in with the seeded
-demo account:
+account — you'll land in a short setup flow, either answering four questions
+by hand or importing a bank statement CSV to prefill them — or sign in with
+the seeded demo account:
 
 ```
 demo@headroom.app / headroom-demo
@@ -34,34 +34,81 @@ demo@headroom.app / headroom-demo
 
 ### Environment variables
 
-| Variable         | Purpose                                                                     |
+| Variable         | Purpose                                                                       |
 | ---------------- | ------------------------------------------------------------------------------ |
-| `DATABASE_URL`   | Postgres connection string (Neon in production).                               |
-| `AUTH_SECRET`    | Auth.js session secret — generate with `npx auth secret`.                      |
-| `AUTH_URL`       | The app's canonical URL (e.g. `http://localhost:3000`).                        |
-| `RESEND_API_KEY` | Optional. Enables the daily attention digest email; unset means it's skipped.   |
-| `EMAIL_FROM`     | Optional. Digest sender address, e.g. `Headroom <notifications@headroom.app>`.  |
-| `CRON_SECRET`    | Required in production to authorise `/api/cron/attention-digest`.              |
+| `DATABASE_URL`   | Postgres connection string (Neon in production). Required.                     |
+| `AUTH_SECRET`    | Auth.js session secret — generate with `npx auth secret`. Required.            |
+| `AUTH_URL`       | The app's canonical URL (e.g. `http://localhost:3000`). Required.              |
+| `RESEND_API_KEY` | Enables the daily attention-digest email. Optional — unset means it's skipped. |
+| `EMAIL_FROM`     | Digest sender address, e.g. `Headroom <notifications@headroom.app>`. Optional. |
+| `CRON_SECRET`    | Authorises the digest's cron trigger. Required in production.                  |
 
 ### Scripts
 
-| Command              | Does what                                              |
-| --------------------- | ------------------------------------------------------- |
-| `npm run dev`          | Start the dev server.                                   |
-| `npm run build`        | Production build.                                        |
-| `npm run typecheck`    | `tsc --noEmit`.                                          |
-| `npm run lint`         | ESLint.                                                  |
-| `npm test`             | Unit and integration tests (Vitest).                     |
-| `npm run test:e2e`     | End-to-end smoke test (Playwright, builds and boots the app). |
-| `npm run db:seed`      | Seed a representative demo household.                    |
+| Command             | Does what                                                      |
+| -------------------- | ----------------------------------------------------------------- |
+| `npm run dev`         | Start the dev server.                                            |
+| `npm run build`       | Production build.                                                |
+| `npm run typecheck`   | `tsc --noEmit`.                                                  |
+| `npm run lint`        | ESLint.                                                          |
+| `npm run format`      | Prettier, applied.                                               |
+| `npm test`            | Unit and integration tests (Vitest).                             |
+| `npm run test:e2e`    | End-to-end smoke test (Playwright, builds and boots the app).    |
+| `npm run db:seed`     | Seed a representative demo household.                            |
+
+## What it does
+
+Six screens, reached from the sidebar:
+
+- **Today** opens to one number: what's safe to spend before your next
+  salary lands, after every bill and EMI already due in that window is set
+  aside. Below it, what's coming up next, and your net worth for reference.
+- **Ahead** is a day-by-day forecast of your account balance for the next
+  30, 60, or 90 days, so a cash crunch shows up before it happens rather
+  than after.
+- **Worth** is your full financial picture — every account, investment, and
+  loan, rolled up into one net worth figure, with a history chart and a
+  plain-English note on what changed this month and this year and why. If
+  you have enough history, it also shows how fast that net worth is
+  compounding annually, and if anything is shared with a partner, a split
+  between what's individually yours and what's joint.
+- **Goals** tracks savings goals — a child's education, a house down
+  payment — adjusted for inflation, with an honest read on whether your
+  current pace actually gets you there on time.
+- **Decide** has four calculators for the big choices: prepay a loan or
+  invest the money instead; can you afford a purchase without wrecking your
+  safety net; what a raise or a pay cut actually does to your finances; and
+  how long your savings would last if your income stopped today.
+- **Records** is every account, loan, and recurring payment you've entered,
+  in one searchable, editable list — for double-checking the raw numbers
+  behind everything else.
+
+A few things live outside the six screens, reached from the sidebar's icon
+row rather than the main navigation:
+
+- **Two-factor login** — optional. Turn it on from the shield icon, scan a
+  QR code with an authenticator app, and a 6-digit code (or a backup code)
+  is required at sign-in from then on.
+- **Getting your data in and out** — new accounts can import a bank
+  statement CSV instead of typing everything by hand; Headroom picks out a
+  current balance and anything that repeats (rent, an EMI, a subscription)
+  and asks you to confirm before saving anything. Going the other way,
+  Worth can export your net worth history as CSV, and any loan can export
+  its full repayment schedule as CSV or a print-ready page.
+- **Daily email alerts** — if something needs attention (a projected
+  shortfall, a loan payment that looks unpaid, a balance gone stale) and
+  you haven't opened the app, Headroom can email you once a day. Silent on
+  every day there's nothing to say.
+- **Install it like an app** — add Headroom to a phone's home screen for
+  one-tap access.
 
 ## Architecture
 
-Next.js 15+ (App Router, React Server Components, Server Actions), TypeScript
+Next.js 16 (App Router, React Server Components, Server Actions), TypeScript
 strict, Tailwind + shadcn/ui, Prisma over Neon Postgres, Auth.js
 (email + password, optional TOTP two-factor), Zod for all input validation,
-Recharts for the two charts in the product, Vitest for unit/integration
-tests, Playwright for the end-to-end smoke test.
+Recharts for the product's charts, Resend for the attention digest, Vitest
+for unit/integration tests, Playwright for the end-to-end smoke test.
 
 ```
 app/
@@ -90,109 +137,6 @@ e2e/                  Playwright smoke test
 Screens read through `services`, which combine `repositories` (data) with
 `engines` (calculation) and return plain, already-computed view data — no
 financial arithmetic happens in a React component or a route handler.
-
-### Data export
-
-There's no bank sync, so getting your own numbers back out matters:
-**Worth** has a CSV export of your full net worth history, and every
-liability has a CSV export of its full amortisation schedule plus a
-print-friendly page for it — use the browser's own "Print → Save as PDF"
-rather than a bundled PDF renderer, since the browser already does this
-well and it means one less dependency in the product.
-
-### Statement import (onboarding only)
-
-The one exception to "export, not import": `/onboarding/import` reads a
-bank statement CSV to prefill onboarding — a current balance, and any
-payment that repeats on a consistent interval at a consistent amount
-(rent, an EMI, a subscription), pattern-matched by `lib/import/`
-(`statement-csv.ts` parses rows; `detect-commitments.ts` groups and
-classifies them by keyword). This is *not* the "full statement analysis"
-the product deliberately avoids — a one-off UPI payment or ATM
-withdrawal never repeats with a matching description, so it never
-becomes a suggestion, and every suggestion is shown for review, never
-saved automatically. The uploaded file itself is parsed in memory for
-the one request and never stored, matching the "no document storage"
-principle above — only the numbers the user actually confirms end up in
-the database.
-
-### Two-factor authentication
-
-Optional TOTP, set up from the shield icon in the sidebar (`/security` —
-deliberately not one of the six screens, since it's account management, not
-a financial view). Sign-in with 2FA on is two round trips, not one extra
-field: submitting email + password alone returns a "needs a code" signal
-(checked by email lookup only, no password verification, so an ordinary
-sign-in never pays for a second bcrypt compare it doesn't need) and the
-form reveals a code input, resubmitting all three fields together — the
-password is still fully re-checked at that point, same as always.
-`lib/auth/totp.ts` and `lib/auth/backup-codes.ts` hold the pure
-generate/verify logic; `auth-service.ts` wires it to the database. Eight
-one-time backup codes are issued at enrolment and shown exactly once — one
-of the harder bugs caught while building this was a premature
-`revalidatePath` that swapped the enrolment screen out for the "turn it
-off" view before the user had ever seen them; the fix defers that refresh
-until the user explicitly acknowledges the codes.
-
-### Installable (PWA)
-
-Today is a daily-glance screen, so home-screen installability is worth
-having: `app/manifest.ts` (served at `/manifest.webmanifest`, Next's own
-convention) declares `start_url: "/today"` and `display: "standalone"`,
-`app/icon.png` / `app/apple-icon.png` cover the browser-tab and iOS
-home-screen icons, and `public/sw.js` is a minimal service worker —
-install-criteria plumbing only, deliberately caching nothing, since
-serving a stale Headroom Number or balance while offline would be
-actively misleading for a "verified precisely" app. The icons themselves
-are generated once via `next/og`'s `ImageResponse` rather than hand-built
-in a design tool — a plain ₹ on the same indigo the Headroom Number
-itself renders in.
-
-### Attention digest
-
-The in-app attention banner (a projected shortfall, an overdue EMI, a
-stale balance) only reaches someone who opens the app.
-`/api/cron/attention-digest`, triggered daily by Vercel Cron (see
-`vercel.json`), runs the same `detectAttentionItems` check for every
-user and emails only the ones who have something flagged — a quiet day
-sends nothing, never an "all clear" message. Email delivery is via
-[Resend](https://resend.com); with no `RESEND_API_KEY` set, the send
-silently no-ops so local dev and not-yet-configured deployments keep
-working. There's no push-notification delivery alongside it yet — that
-needs a PWA shell (a manifest, a service worker) this app doesn't have,
-so it was left for later rather than half-built now.
-
-### Joint vs. individual net worth
-
-`isJoint` lives on `Account` and `Asset` (and now `Liability` too — a
-joint home loan deducted entirely from one person's individual total
-would understate it and overstate the joint side, so a liability's
-ownership matters exactly as much as an asset's). `splitNetWorthByOwnership`
-in `networth.ts` partitions the same `calculateNetWorth` computation
-by that flag; `individual.netWorth + joint.netWorth` always equals the
-combined total exactly. Worth shows the full breakdown in a "By
-ownership" card; Today shows it as a one-line subtitle under the net
-worth figure. Both are hidden entirely when nothing is flagged
-joint — the common case shouldn't have to look at a "Joint: ₹0" row
-that never changes.
-
-### Long-term trend on Worth
-
-`NetWorthSnapshot`'s daily history already powered a month-over-month
-"what changed and why"; the same `attributeNetWorthChange` decomposition
-now also runs year-over-year (the closest snapshot to ~365 days back —
-`getYearOverYearAttributionForUser`), and `calculateCagr` in
-`networth.ts` computes compound annual growth from the very first
-recorded snapshot to the latest. Both are honestly gated rather than
-shown on thin data: year-over-year needs a snapshot at least a year old,
-and CAGR additionally needs the starting net worth to be positive — a
-household deep in a home loan has a negative net worth for years, and
-there's no meaningful "growth rate" from a negative number, so the
-figure is hidden rather than shown as nonsense. The demo household is
-exactly this case: it has backfilled multi-year history and shows a
-correct year-over-year figure, but never CAGR, because its net worth
-stays negative throughout — which is itself the honest answer, not a
-gap.
 
 ### The domain model
 
@@ -227,29 +171,57 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   amortisation schedules, prepayment simulation (reduce-tenure or
   reduce-EMI), and the Section 24(b) tax-deduction-capped effective
   post-tax cost of debt.
-- **`decisions.ts`** — the Decide screen's four tools: prepay-vs-invest
-  (compares a loan prepayment's guaranteed return against investing the same
-  lump sum at pessimistic/base/optimistic rates, post-capital-gains-tax); an
-  affordability check (can a purchase happen without breaching your
-  emergency fund target or creating new shortfall risk); an income-change
-  model (scales your salary commitment(s) and reruns a 90-day cash-flow
-  projection — deliberately not the Headroom Number, which excludes the
-  very salary occurrence that bounds its own window); and a job-loss
-  runway (projects how long your liquid balance lasts with every
-  commitment but salary still applied, plus a smooth daily draw-down of
-  your variable-spend estimate).
+- **`decisions.ts`** — the Decide screen's four tools: prepay-vs-invest,
+  an affordability check, an income-change model (a raise or a pay cut,
+  shown as a 90-day cash-flow projection), and a job-loss runway (how long
+  your balance lasts with salary stopped and everything else unchanged).
 - **`goals.ts`** — evaluates a savings goal against an inflation-adjusted
   target: what your current pace projects to by the target date, the
   monthly contribution that would close any gap, and an on-track / at-risk
-  / off-track status — all off the same compounding formula, walked
-  forward for a projection and solved for the months-to-target figure.
-- **`networth.ts`** — net worth and per-type allocation, plus attribution
+  / off-track status.
+- **`networth.ts`** — net worth and per-type allocation; attribution
   (splits a period's net worth change into contributions, market movement,
-  principal repaid, and other, by diffing two snapshots).
+  principal repaid, and other, by diffing two snapshots — run both
+  month-over-month and year-over-year); and compound annual growth rate
+  since the first recorded snapshot.
 - **`attention.ts`** — flags a projected shortfall, an overdue EMI, or an
   account/asset balance that's gone stale (untouched for two weeks or
-  more — the Headroom Number and net worth are only as current as the
-  figures behind them) before they become a surprise.
+  more) before they become a surprise.
+- **`import/`** (`lib/import/`, not `lib/engines/`, but the same pure-function
+  discipline) — parses a bank statement CSV and pattern-matches recurring
+  payments by interval and amount consistency.
+
+### Design decisions that aren't obvious from the code
+
+- **2FA is two round trips, not one extra field.** Submitting email +
+  password alone returns a "needs a code" signal from an email lookup
+  only — no password check yet — so an ordinary sign-in still costs
+  exactly one bcrypt compare. The password is fully re-verified once the
+  code is submitted. (`lib/auth/totp.ts`, `lib/auth/backup-codes.ts`)
+- **The service worker deliberately caches nothing.** This app shows live
+  financial data; a cached Headroom Number or balance served while offline
+  would be a stale figure presented as current, which is worse than the
+  app simply not loading. (`public/sw.js`)
+- **Statement import shows suggestions, never saves automatically.** A
+  payment only becomes a suggestion if it repeats on a consistent interval
+  and amount — a one-off UPI payment or ATM withdrawal never matches
+  twice, so it's never suggested. The uploaded file is parsed in memory
+  for the one request and never stored. (`lib/import/`)
+- **Individual + joint net worth always equals the combined total
+  exactly.** `Liability` carries `isJoint` alongside `Account` and
+  `Asset` — a joint home loan deducted entirely from an "individual"
+  total would make the split actively misleading, not just incomplete.
+  (`splitNetWorthByOwnership` in `networth.ts`)
+- **CAGR is hidden, not wrong, when it can't be computed honestly.** It
+  needs at least 180 days of history and a positive starting net worth —
+  there's no meaningful "growth rate" from a negative net worth, which is
+  normal for anyone a few years into a large home loan. (`calculateCagr`
+  in `networth.ts`)
+- **The attention digest never says "all clear."** It emails only users
+  who actually have something flagged; a quiet day sends nothing. With no
+  `RESEND_API_KEY` set, sending silently no-ops rather than throwing, so
+  local dev and unconfigured deployments keep working.
+  (`app/api/cron/attention-digest`, `lib/email/`)
 
 ## Money rules
 
@@ -289,6 +261,13 @@ since that's where financial correctness actually lives.
 ## Deploying
 
 Deploys to [Vercel](https://vercel.com) — see `vercel.json` (Mumbai region,
-`prisma migrate deploy` runs as part of the build). Point `DATABASE_URL` at
-a Neon Postgres instance and set `AUTH_SECRET` / `AUTH_URL` in the project's
-environment variables before the first deploy.
+`prisma migrate deploy` runs as part of the build, and a daily cron trigger
+for the attention digest). Before the first deploy, set in the project's
+environment variables:
+
+- `DATABASE_URL` pointed at a Neon Postgres instance, `AUTH_SECRET`, and
+  `AUTH_URL` — all required.
+- `CRON_SECRET` — required, or the digest's cron endpoint stays disabled
+  (it fails closed rather than running unauthenticated).
+- `RESEND_API_KEY` and `EMAIL_FROM` — optional; without them the app runs
+  fine, the digest just never sends.
