@@ -498,4 +498,18 @@ describe("jobLossRunway", () => {
     });
     expect(shortOfTarget.meetsEmergencyFundTarget).toBe(false);
   });
+
+  it("floors emergency fund coverage at zero months rather than going negative when accounts are overdrawn", () => {
+    const result = jobLossRunway({
+      now,
+      accounts: [{ currentBalance: "-5000" }],
+      commitments: [
+        commitment({ id: "rent", name: "Rent", direction: "OUTFLOW", frequency: "MONTHLY", amount: "20000" }),
+      ],
+      variableSpendBaseline: null,
+      emergencyFundTargetMonths: 6,
+    });
+    expect(result.emergencyFundCoverageMonths.toFixed(2)).toBe("0.00");
+    expect(result.meetsEmergencyFundTarget).toBe(false);
+  });
 });

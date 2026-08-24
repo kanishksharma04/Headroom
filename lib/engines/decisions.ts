@@ -649,7 +649,9 @@ export function jobLossRunway(input: JobLossRunwayInput): JobLossRunwayResult {
   const monthlyBurn = variableSpendBaseline
     ? monthlyOutflowTotal.plus(variableSpendBaseline.monthlyAmount)
     : monthlyOutflowTotal;
-  const emergencyFundCoverageMonths = monthlyBurn.isZero() ? toMoney(0) : startingBalance.div(monthlyBurn);
+  const emergencyFundCoverageMonths = monthlyBurn.isZero()
+    ? toMoney(0)
+    : max(startingBalance.div(monthlyBurn), 0);
 
   return {
     startingBalance,

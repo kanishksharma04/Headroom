@@ -132,6 +132,27 @@ describe("detectRecurringCommitments", () => {
     expect(suggestions[0]).toMatchObject({ category: "INSURANCE", frequency: "QUARTERLY" });
   });
 
+  it("doesn't mis-categorise a description that merely contains a keyword as a substring", () => {
+    const transactions = [
+      tx({ date: istDate(2026, 0, 5), description: "CURRENT AC TRANSFER XYZ", debit: toMoney("3000") }),
+      tx({ date: istDate(2026, 1, 5), description: "CURRENT AC TRANSFER XYZ", debit: toMoney("3000") }),
+    ];
+    const suggestions = detectRecurringCommitments(transactions);
+    expect(suggestions).toHaveLength(1);
+    // "CURRENT" contains "RENT" as a substring — must not be tagged RENT.
+    expect(suggestions[0].category).not.toBe("RENT");
+    expect(suggestions[0].category).toBe("OTHER");
+  });
+
+  it("still matches a keyword glued to punctuation rather than spaces", () => {
+    const transactions = [
+      tx({ date: istDate(2026, 0, 5), description: "AIRTEL-DTH RECHARGE", debit: toMoney("300") }),
+      tx({ date: istDate(2026, 1, 5), description: "AIRTEL-DTH RECHARGE", debit: toMoney("300") }),
+    ];
+    const suggestions = detectRecurringCommitments(transactions);
+    expect(suggestions[0].category).toBe("UTILITY");
+  });
+
   it("sorts suggestions by occurrence count, most-confident first", () => {
     const transactions = [
       tx({ date: istDate(2026, 0, 5), description: "RENT", debit: toMoney("20000") }),
