@@ -176,6 +176,24 @@ worth figure. Both are hidden entirely when nothing is flagged
 joint — the common case shouldn't have to look at a "Joint: ₹0" row
 that never changes.
 
+### Long-term trend on Worth
+
+`NetWorthSnapshot`'s daily history already powered a month-over-month
+"what changed and why"; the same `attributeNetWorthChange` decomposition
+now also runs year-over-year (the closest snapshot to ~365 days back —
+`getYearOverYearAttributionForUser`), and `calculateCagr` in
+`networth.ts` computes compound annual growth from the very first
+recorded snapshot to the latest. Both are honestly gated rather than
+shown on thin data: year-over-year needs a snapshot at least a year old,
+and CAGR additionally needs the starting net worth to be positive — a
+household deep in a home loan has a negative net worth for years, and
+there's no meaningful "growth rate" from a negative number, so the
+figure is hidden rather than shown as nonsense. The demo household is
+exactly this case: it has backfilled multi-year history and shows a
+correct year-over-year figure, but never CAGR, because its net worth
+stays negative throughout — which is itself the honest answer, not a
+gap.
+
 ### The domain model
 
 `User` → `Account` (bank/cash), `Asset` (everything else you own),

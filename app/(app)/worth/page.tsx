@@ -7,6 +7,7 @@ import { ACCOUNT_TYPE_LABELS } from "@/lib/validation/account";
 import { ASSET_TYPE_LABELS } from "@/lib/validation/asset";
 import { LIABILITY_TYPE_LABELS } from "@/lib/validation/liability";
 import { toIstDateInputValue, todayIst } from "@/lib/dates";
+import { formatLongDate } from "@/lib/format-date";
 import { describeNetWorthAttribution } from "@/lib/format-attribution";
 import { NetWorthHistoryChart } from "@/components/worth/net-worth-history-chart";
 import { sum } from "@/lib/money";
@@ -39,7 +40,7 @@ export default async function WorthPage() {
     redirect("/sign-in");
   }
 
-  const { netWorth, ownershipSplit, accounts, assets, liabilities, history, attribution } =
+  const { netWorth, ownershipSplit, accounts, assets, liabilities, history, attribution, yearOverYear, cagr } =
     await getWorthOverviewForUser(userId);
   const hasJointHoldings =
     !ownershipSplit.joint.totalAssets.isZero() || !ownershipSplit.joint.totalLiabilities.isZero();
@@ -123,13 +124,44 @@ export default async function WorthPage() {
           ) : (
             <NetWorthHistoryChart data={chartData} />
           )}
-          {attribution ? (
-            <p className="text-muted-foreground mt-4 text-sm">{describeNetWorthAttribution(attribution)}</p>
-          ) : (
-            <p className="text-muted-foreground mt-4 text-sm">
-              Come back in a few weeks to see what changed and why.
-            </p>
-          )}
+
+          <div className="mt-4 flex flex-col gap-3 text-sm">
+            <div>
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                This month
+              </p>
+              <p className="text-muted-foreground mt-0.5">
+                {attribution
+                  ? describeNetWorthAttribution(attribution)
+                  : "Come back in a few weeks to see what changed and why."}
+              </p>
+            </div>
+
+            {yearOverYear ? (
+              <div>
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  This year
+                </p>
+                <p className="text-muted-foreground mt-0.5">{describeNetWorthAttribution(yearOverYear)}</p>
+              </div>
+            ) : null}
+
+            {cagr ? (
+              <div>
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Compound annual growth
+                </p>
+                <p className="text-muted-foreground mt-0.5">
+                  <span
+                    className={cagr.cagrPercent.isNegative() ? "text-destructive font-medium" : "font-medium"}
+                  >
+                    {cagr.cagrPercent.toFixed(1)}%
+                  </span>{" "}
+                  a year since {formatLongDate(cagr.fromDate)} ({cagr.years.toFixed(1)} years of history).
+                </p>
+              </div>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 

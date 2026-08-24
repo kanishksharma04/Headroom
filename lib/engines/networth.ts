@@ -57,6 +57,43 @@ export function splitNetWorthByOwnership(input: OwnershipSplitInput): NetWorthOw
   return { individual, joint };
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DAYS_PER_YEAR = 365;
+
+export type CagrResult = {
+  cagrPercent: Money;
+  years: Money;
+};
+
+/**
+ * Compound annual growth rate between two net worth figures at two dates:
+ * (end / start)^(1/years) − 1, as a percentage. Returns null when it isn't
+ * a meaningful number rather than a misleading one — `start` at or below
+ * zero (growing "from" a negative net worth isn't a compounding ratio),
+ * `end` at or below zero (same problem, the other side), or the dates not
+ * being in order. Callers are expected to additionally require a minimum
+ * span before showing this — annualising a two-week swing produces a wild,
+ * meaningless percentage even though the maths above is technically fine.
+ */
+export function calculateCagr(
+  startValue: Decimal.Value,
+  startDate: Date,
+  endValue: Decimal.Value,
+  endDate: Date,
+): CagrResult | null {
+  const start = toMoney(startValue);
+  const end = toMoney(endValue);
+  const days = (endDate.getTime() - startDate.getTime()) / MS_PER_DAY;
+
+  if (start.lessThanOrEqualTo(0) || end.lessThanOrEqualTo(0) || days <= 0) {
+    return null;
+  }
+
+  const years = toMoney(days).div(DAYS_PER_YEAR);
+  const cagrPercent = end.div(start).pow(toMoney(1).div(years)).minus(1).times(100);
+  return { cagrPercent, years };
+}
+
 export type AllocationEntry<TType extends string> = {
   type: TType;
   value: Money;

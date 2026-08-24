@@ -11,8 +11,11 @@ import { findAssetsByUserId } from "@/lib/repositories/asset-repository";
 import { findLiabilitiesByUserId } from "@/lib/repositories/liability-repository";
 import {
   getNetWorthAttributionForUser,
+  getNetWorthCagrForUser,
   getNetWorthHistoryForUser,
+  getYearOverYearAttributionForUser,
   type NetWorthAttributionResult,
+  type NetWorthCagrResult,
   type NetWorthHistoryPoint,
 } from "@/lib/services/networth-snapshot-service";
 import type { Account, AssetType, Asset, Liability, LiabilityType } from "@/lib/generated/prisma/client";
@@ -27,15 +30,19 @@ export type WorthOverview = {
   liabilityAllocation: AllocationEntry<LiabilityType>[];
   history: NetWorthHistoryPoint[];
   attribution: NetWorthAttributionResult | null;
+  yearOverYear: NetWorthAttributionResult | null;
+  cagr: NetWorthCagrResult | null;
 };
 
 export async function getWorthOverviewForUser(userId: string): Promise<WorthOverview> {
-  const [accounts, assets, liabilities, history, attribution] = await Promise.all([
+  const [accounts, assets, liabilities, history, attribution, yearOverYear, cagr] = await Promise.all([
     findAccountsByUserId(userId),
     findAssetsByUserId(userId),
     findLiabilitiesByUserId(userId),
     getNetWorthHistoryForUser(userId),
     getNetWorthAttributionForUser(userId),
+    getYearOverYearAttributionForUser(userId),
+    getNetWorthCagrForUser(userId),
   ]);
 
   const netWorth = calculateNetWorth({
@@ -62,5 +69,7 @@ export async function getWorthOverviewForUser(userId: string): Promise<WorthOver
     liabilityAllocation: allocationByType(liabilities, (l) => l.outstandingPrincipal),
     history,
     attribution,
+    yearOverYear,
+    cagr,
   };
 }

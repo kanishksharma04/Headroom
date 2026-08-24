@@ -5,9 +5,11 @@ import { createAccount } from "@/lib/repositories/account-repository";
 import {
   captureNetWorthSnapshotForUser,
   getNetWorthAttributionForUser,
+  getNetWorthCagrForUser,
   getNetWorthHistoryForUser,
+  getYearOverYearAttributionForUser,
 } from "@/lib/services/networth-snapshot-service";
-import { istDate } from "@/lib/dates";
+import { getIstParts, istDate } from "@/lib/dates";
 
 describe("networth-snapshot-service", () => {
   const createdUserIds: string[] = [];
@@ -108,5 +110,91 @@ describe("networth-snapshot-service", () => {
     expect(attribution).not.toBeNull();
     expect(attribution!.totalChange.toFixed(2)).toBe("45000.00");
     expect(attribution!.other.toFixed(2)).toBe("45000.00"); // a raw account delta, unattributable further
+  });
+
+  it("returns null year-over-year with less than a year of history", async () => {
+    const user = await makeUser();
+    const account = await createAccount({
+      user: { connect: { id: user.id } },
+      name: "Bank",
+      type: "SAVINGS",
+      currentBalance: "100000",
+      balanceAsOf: new Date(),
+    });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 0, 1));
+    await prisma.account.update({ where: { id: account.id }, data: { currentBalance: "145000" } });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 5, 1)); // 5 months later
+
+    expect(await getYearOverYearAttributionForUser(user.id)).toBeNull();
+  });
+
+  it("decomposes a year-over-year change once a year of history exists", async () => {
+    const user = await makeUser();
+    const account = await createAccount({
+      user: { connect: { id: user.id } },
+      name: "Bank",
+      type: "SAVINGS",
+      currentBalance: "100000",
+      balanceAsOf: new Date(),
+    });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2025, 0, 1));
+    await prisma.account.update({ where: { id: account.id }, data: { currentBalance: "220000" } });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 0, 5)); // just over a year later
+
+    const yoy = await getYearOverYearAttributionForUser(user.id);
+    expect(yoy).not.toBeNull();
+    expect(yoy!.totalChange.toFixed(2)).toBe("120000.00");
+    expect(getIstParts(yoy!.fromDate)).toMatchObject({ year: 2025, month: 0, day: 1 });
+  });
+
+  it("returns null CAGR under the minimum span, even with two snapshots", async () => {
+    const user = await makeUser();
+    const account = await createAccount({
+      user: { connect: { id: user.id } },
+      name: "Bank",
+      type: "SAVINGS",
+      currentBalance: "100000",
+      balanceAsOf: new Date(),
+    });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 0, 1));
+    await prisma.account.update({ where: { id: account.id }, data: { currentBalance: "110000" } });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 1, 1)); // ~1 month later
+
+    expect(await getNetWorthCagrForUser(user.id)).toBeNull();
+  });
+
+  it("computes CAGR from the earliest to the latest snapshot once there's enough span", async () => {
+    const user = await makeUser();
+    const account = await createAccount({
+      user: { connect: { id: user.id } },
+      name: "Bank",
+      type: "SAVINGS",
+      currentBalance: "100000",
+      balanceAsOf: new Date(),
+    });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2025, 0, 1));
+    await prisma.account.update({ where: { id: account.id }, data: { currentBalance: "121000" } });
+    // Exactly two years later, so this matches calculateCagr's own unit test: 10%/year.
+    await captureNetWorthSnapshotForUser(user.id, istDate(2027, 0, 1));
+
+    const cagr = await getNetWorthCagrForUser(user.id);
+    expect(cagr).not.toBeNull();
+    expect(cagr!.cagrPercent.toFixed(2)).toBe("10.00");
+  });
+
+  it("returns null CAGR when the earliest snapshot's net worth wasn't positive", async () => {
+    const user = await makeUser();
+    const account = await createAccount({
+      user: { connect: { id: user.id } },
+      name: "Bank",
+      type: "SAVINGS",
+      currentBalance: "0",
+      balanceAsOf: new Date(),
+    });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2025, 0, 1));
+    await prisma.account.update({ where: { id: account.id }, data: { currentBalance: "100000" } });
+    await captureNetWorthSnapshotForUser(user.id, istDate(2026, 5, 1));
+
+    expect(await getNetWorthCagrForUser(user.id)).toBeNull();
   });
 });

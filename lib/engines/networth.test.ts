@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   allocationByType,
   attributeNetWorthChange,
+  calculateCagr,
   calculateNetWorth,
   splitNetWorthByOwnership,
   type NetWorthSnapshot,
 } from "@/lib/engines/networth";
+import { istDate } from "@/lib/dates";
 
 describe("calculateNetWorth", () => {
   it("sums accounts and assets, subtracts liabilities", () => {
@@ -90,6 +92,48 @@ describe("splitNetWorthByOwnership", () => {
     const split = splitNetWorthByOwnership({ accounts: [], assets: [], liabilities: [] });
     expect(split.individual.netWorth.toFixed(2)).toBe("0.00");
     expect(split.joint.netWorth.toFixed(2)).toBe("0.00");
+  });
+});
+
+describe("calculateCagr", () => {
+  it("is exactly 100% for a doubling over exactly one year", () => {
+    const result = calculateCagr("100000", istDate(2025, 0, 1), "200000", istDate(2026, 0, 1));
+    expect(result).not.toBeNull();
+    expect(result!.cagrPercent.toFixed(2)).toBe("100.00");
+  });
+
+  it("is exactly 10% a year for 10% compounded annual growth over two years", () => {
+    // 100 * 1.1^2 = 121, over exactly 730 days (2 * 365).
+    const result = calculateCagr(
+      "100",
+      istDate(2024, 0, 1),
+      "121",
+      new Date(istDate(2024, 0, 1).getTime() + 730 * 24 * 60 * 60 * 1000),
+    );
+    expect(result).not.toBeNull();
+    expect(result!.cagrPercent.toFixed(2)).toBe("10.00");
+    expect(result!.years.toFixed(2)).toBe("2.00");
+  });
+
+  it("is negative when net worth shrank", () => {
+    const result = calculateCagr("200000", istDate(2025, 0, 1), "100000", istDate(2026, 0, 1));
+    expect(result).not.toBeNull();
+    expect(result!.cagrPercent.isNegative()).toBe(true);
+  });
+
+  it("is null when the starting value isn't positive", () => {
+    expect(calculateCagr("0", istDate(2025, 0, 1), "100000", istDate(2026, 0, 1))).toBeNull();
+    expect(calculateCagr("-50000", istDate(2025, 0, 1), "100000", istDate(2026, 0, 1))).toBeNull();
+  });
+
+  it("is null when the ending value isn't positive", () => {
+    expect(calculateCagr("100000", istDate(2025, 0, 1), "0", istDate(2026, 0, 1))).toBeNull();
+    expect(calculateCagr("100000", istDate(2025, 0, 1), "-50000", istDate(2026, 0, 1))).toBeNull();
+  });
+
+  it("is null when the dates aren't in order", () => {
+    expect(calculateCagr("100000", istDate(2026, 0, 1), "200000", istDate(2025, 0, 1))).toBeNull();
+    expect(calculateCagr("100000", istDate(2026, 0, 1), "200000", istDate(2026, 0, 1))).toBeNull();
   });
 });
 
