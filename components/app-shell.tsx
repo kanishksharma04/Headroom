@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo, LogoMark } from "@/components/logo";
 import { NAV_ITEMS } from "@/components/nav-items";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AttentionBanner, type AttentionMessage } from "@/components/attention-banner";
@@ -46,7 +47,7 @@ export function AppShell({
       </div>
       <div className="flex flex-1 flex-col md:flex-row">
         <aside className="hidden w-56 shrink-0 flex-col border-r px-3 py-6 md:flex print:hidden">
-          <span className="mb-8 px-3 text-sm font-medium tracking-tight">Headroom</span>
+          <Logo className="mb-8 px-3" />
           <nav className="flex flex-1 flex-col gap-1">
             {NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href);
@@ -58,7 +59,7 @@ export function AppShell({
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-muted text-foreground"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                   )}
                 >
@@ -77,7 +78,10 @@ export function AppShell({
 
         <div className="flex flex-1 flex-col">
           <header className="flex items-center justify-between border-b px-4 py-3 md:hidden print:hidden">
-            <span className="text-sm font-medium tracking-tight">Headroom</span>
+            <span className="flex items-center gap-2 text-sm font-medium tracking-tight">
+              <LogoMark />
+              headroom
+            </span>
             <div className="flex items-center gap-1">
               <SecurityLink />
               <ThemeToggle />

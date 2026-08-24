@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -62,81 +62,83 @@
 }
 
 :root {
-  /* Warm off-white / near-black neutrals, not pure grayscale. */
-  --background: oklch(0.985 0.004 75);
-  --foreground: oklch(0.16 0.006 75);
-  --card: oklch(0.995 0.003 75);
-  --card-foreground: oklch(0.16 0.006 75);
-  --popover: oklch(0.995 0.003 75);
-  --popover-foreground: oklch(0.16 0.006 75);
-  --primary: oklch(0.16 0.006 75);
-  --primary-foreground: oklch(0.985 0.004 75);
-  --secondary: oklch(0.94 0.005 75);
-  --secondary-foreground: oklch(0.16 0.006 75);
-  --muted: oklch(0.94 0.005 75);
-  --muted-foreground: oklch(0.48 0.006 75);
-  --accent: oklch(0.94 0.005 75);
-  --accent-foreground: oklch(0.16 0.006 75);
+  /* Brand neutrals: white surfaces on a soft blue-grey ground, echoing the
+     "Know Your Space" navy without being dark. */
+  --background: #f5f7fa;
+  --foreground: #0b1220;
+  --card: #ffffff;
+  --card-foreground: #0b1220;
+  --popover: #ffffff;
+  --popover-foreground: #0b1220;
+  --primary: #386bff;
+  --primary-foreground: #ffffff;
+  --secondary: #e6ecf3;
+  --secondary-foreground: #0b1220;
+  --muted: #e6ecf3;
+  --muted-foreground: #5b6b85;
+  --accent: #e6ecf3;
+  --accent-foreground: #0b1220;
   /* Muted risk red — a warning, not an alarm. */
   --destructive: oklch(0.55 0.16 25);
-  --border: oklch(0.9 0.005 75);
-  --input: oklch(0.9 0.005 75);
-  --ring: oklch(0.55 0.01 75);
+  --border: #e6ecf3;
+  --input: #e6ecf3;
+  --ring: #386bff;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.97 0.004 75);
-  --sidebar-foreground: oklch(0.16 0.006 75);
-  --sidebar-primary: oklch(0.16 0.006 75);
-  --sidebar-primary-foreground: oklch(0.985 0.004 75);
-  --sidebar-accent: oklch(0.94 0.005 75);
-  --sidebar-accent-foreground: oklch(0.16 0.006 75);
-  --sidebar-border: oklch(0.9 0.005 75);
-  --sidebar-ring: oklch(0.55 0.01 75);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b1220;
+  --sidebar-primary: #386bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e6ecf3;
+  --sidebar-accent-foreground: #0b1220;
+  --sidebar-border: #e6ecf3;
+  --sidebar-ring: #386bff;
 
-  /* Deep indigo — calm, not celebratory. Reserved for the Headroom Number. */
-  --number: oklch(0.42 0.14 264);
-  --number-foreground: oklch(0.98 0.01 264);
+  /* Brand green — reserved for the Headroom Number. Never used for chrome. */
+  --number: #10b981;
+  --number-foreground: #ffffff;
 }
 
 .dark {
-  --background: oklch(0.16 0.006 75);
-  --foreground: oklch(0.96 0.004 75);
-  --card: oklch(0.2 0.006 75);
-  --card-foreground: oklch(0.96 0.004 75);
-  --popover: oklch(0.2 0.006 75);
-  --popover-foreground: oklch(0.96 0.004 75);
-  --primary: oklch(0.92 0.004 75);
-  --primary-foreground: oklch(0.16 0.006 75);
-  --secondary: oklch(0.26 0.006 75);
-  --secondary-foreground: oklch(0.96 0.004 75);
-  --muted: oklch(0.26 0.006 75);
-  --muted-foreground: oklch(0.64 0.006 75);
-  --accent: oklch(0.26 0.006 75);
-  --accent-foreground: oklch(0.96 0.004 75);
+  /* Brand navy — the doorway-glow ground from the mark, carried into the app. */
+  --background: #0b1220;
+  --foreground: #f5f7fa;
+  --card: #131b2e;
+  --card-foreground: #f5f7fa;
+  --popover: #131b2e;
+  --popover-foreground: #f5f7fa;
+  --primary: #386bff;
+  --primary-foreground: #ffffff;
+  --secondary: #1b2438;
+  --secondary-foreground: #f5f7fa;
+  --muted: #1b2438;
+  --muted-foreground: #8b9bb4;
+  --accent: #1b2438;
+  --accent-foreground: #f5f7fa;
   --destructive: oklch(0.62 0.15 25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.55 0.01 75);
+  --ring: #386bff;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.19 0.006 75);
-  --sidebar-foreground: oklch(0.96 0.004 75);
-  --sidebar-primary: oklch(0.72 0.13 264);
-  --sidebar-primary-foreground: oklch(0.15 0.02 264);
-  --sidebar-accent: oklch(0.26 0.006 75);
-  --sidebar-accent-foreground: oklch(0.96 0.004 75);
+  --sidebar: #0b1220;
+  --sidebar-foreground: #f5f7fa;
+  --sidebar-primary: #386bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1b2438;
+  --sidebar-accent-foreground: #f5f7fa;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.55 0.01 75);
+  --sidebar-ring: #386bff;
 
-  --number: oklch(0.72 0.13 264);
-  --number-foreground: oklch(0.15 0.02 264);
+  --number: #10b981;
+  --number-foreground: #ffffff;
 }
 
 @layer base {

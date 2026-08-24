@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Know what you can actually afford.",
     start_url: "/today",
     display: "standalone",
-    background_color: "#FAFAF7",
-    theme_color: "#3730A3",
+    background_color: "#0B1220",
+    theme_color: "#0B1220",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },

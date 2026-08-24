@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +10,7 @@ export default async function Home() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className="text-sm font-medium tracking-tight">Headroom</span>
+        <Logo />
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button
