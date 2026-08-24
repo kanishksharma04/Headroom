@@ -6,9 +6,11 @@ spend before your next payday, once every commitment you've already made is
 accounted for — and helps you decide, with your actual numbers, whether to
 prepay a loan or invest instead.
 
-It deliberately does not do budgeting, gamification, a financial health
-score, AI chat, or document storage. The discipline is the product: a small
-number of numbers, verified precisely, shown clearly.
+It deliberately does not do budgeting, gamification, or document storage.
+Ask, its AI assistant, only ever answers from your real numbers via
+read-only tools — it never invents a figure and can't edit anything. The
+discipline is the product: a small number of numbers, verified precisely,
+shown clearly.
 
 ## Getting started
 
@@ -42,6 +44,8 @@ demo@headroom.app / headroom-demo
 | `RESEND_API_KEY` | Enables the daily attention-digest email. Optional — unset means it's skipped. |
 | `EMAIL_FROM`     | Digest sender address, e.g. `Headroom <notifications@headroom.app>`. Optional. |
 | `CRON_SECRET`    | Authorises the digest's cron trigger. Required in production.                  |
+| `ANTHROPIC_API_KEY` | Enables the Ask assistant. Optional — unset means `/assistant` shows a "not configured" state. |
+| `ANTHROPIC_MODEL`   | Overrides the Ask assistant's model (default `claude-sonnet-5`). Optional.      |
 
 ### Scripts
 
@@ -83,8 +87,17 @@ Six screens, reached from the sidebar:
   in one searchable, editable list — for double-checking the raw numbers
   behind everything else.
 
-A few things live outside the six screens, reached from the sidebar's icon
-row rather than the main navigation:
+A seventh, differently-natured screen sits in the same sidebar:
+
+- **Ask** is a conversational front end to the six screens above — type a
+  question in plain English ("What's my job-loss runway?", "Can I afford a
+  ₹15L car this year?") and it answers by calling the same read-only tools
+  that power Today, Worth, Goals, and Decide. It never invents a number and
+  can't create, edit, or delete anything; a daily question limit keeps API
+  cost bounded.
+
+A few more things live outside the main navigation, reached from the
+sidebar's icon row instead:
 
 - **Two-factor login** — optional. Turn it on from the shield icon, scan a
   QR code with an authenticator app, and a 6-digit code (or a backup code)
@@ -113,10 +126,11 @@ for unit/integration tests, Playwright for the end-to-end smoke test.
 ```
 app/
   (auth)/           sign-in, sign-up
-  (app)/             today, ahead, worth, goals, decide, records — the six screens
-                      — plus /security, account management, not a seventh screen
+  (app)/             today, ahead, worth, goals, decide, assistant, records — the seven screens
+                      — plus /security, account management, not an eighth screen
   api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
   api/cron/            the attention-digest cron trigger
+  api/assistant/        the Ask chat endpoint
   onboarding/        the one-time minimal setup flow, plus onboarding/import for the CSV path
 lib/
   engines/           pure functions — every financial calculation lives here
@@ -127,6 +141,7 @@ lib/
   import/               statement CSV parsing + recurring-payment detection, onboarding only
   email/                digest email content + the Resend send wrapper
   auth/                 TOTP and backup-code logic, consumed by auth-service.ts
+  ai/                    Ask's Anthropic client, system prompt, and tool definitions
   money.ts, dates.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
@@ -143,12 +158,13 @@ financial arithmetic happens in a React component or a route handler.
 `User` → `Account` (bank/cash), `Asset` (everything else you own),
 `Liability` (loans), `Commitment` (a recurring or one-time inflow/outflow —
 salary, rent, EMI, SIP, subscription), `VariableSpendBaseline` (your
-day-to-day spending estimate), `Goal`, `Scenario` (a saved what-if). A
-`Liability`'s EMI is mirrored into a linked `Commitment` automatically, so it
-never has to be entered twice. `NetWorthSnapshot` captures the full balance
-sheet once per day, on every mutation — it's the only source of history the
-app has, and it's what powers the net worth chart and the "what changed and
-why" attribution on the Worth screen.
+day-to-day spending estimate), `Goal`, `Scenario` (a saved what-if),
+`AssistantMessage` (one row per turn of Ask's single ongoing conversation).
+A `Liability`'s EMI is mirrored into a linked `Commitment` automatically, so
+it never has to be entered twice. `NetWorthSnapshot` captures the full
+balance sheet once per day, on every mutation — it's the only source of
+history the app has, and it's what powers the net worth chart and the
+"what changed and why" attribution on the Worth screen.
 
 ### The engines (`lib/engines/`)
 
@@ -222,6 +238,15 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   `RESEND_API_KEY` set, sending silently no-ops rather than throwing, so
   local dev and unconfigured deployments keep working.
   (`app/api/cron/attention-digest`, `lib/email/`)
+- **Ask's tools can't be told whose data to fetch.** Every tool's JSON
+  schema is free of a `userId` field by construction — each tool executor
+  closes over the session's `userId` instead, so even a hallucinated or
+  adversarial tool call can only ever touch the signed-in user's own
+  records. A 40-questions/day cap and a 5-round tool-use limit bound the
+  cost of a single conversation; only the last 20 messages are replayed to
+  Claude each turn so a long-lived conversation's context doesn't grow
+  unboundedly, even though the page itself shows full history.
+  (`lib/ai/assistant-tools.ts`, `lib/services/assistant-service.ts`)
 
 ## Money rules
 

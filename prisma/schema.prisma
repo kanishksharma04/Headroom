@@ -120,6 +120,7 @@ model User {
   goals                 Goal[]
   scenarios             Scenario[]
   netWorthSnapshots     NetWorthSnapshot[]
+  assistantMessages     AssistantMessage[]
 }
 
 model Account {
@@ -256,6 +257,27 @@ model Scenario {
   createdAt  DateTime     @default(now())
 
   @@index([userId])
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+/// One row per turn in the user's single ongoing Ask conversation. Only
+/// the final visible text of each turn is stored — not intermediate
+/// tool_use/tool_result blocks — since each request replays its own
+/// fresh tool-use loop. Never updated in place, so no updatedAt.
+model AssistantMessage {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AssistantMessageRole
+  content   String
+  createdAt DateTime             @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
 }
 
 /// A point-in-time record of a user's full balance sheet, captured

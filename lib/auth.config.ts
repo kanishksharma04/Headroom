@@ -1,6 +1,15 @@
 import type { NextAuthConfig } from "next-auth";
 
-const PROTECTED_PREFIXES = ["/today", "/ahead", "/worth", "/goals", "/decide", "/records", "/security"];
+const PROTECTED_PREFIXES = [
+  "/today",
+  "/ahead",
+  "/worth",
+  "/goals",
+  "/decide",
+  "/assistant",
+  "/records",
+  "/security",
+];
 const AUTH_PAGE_PREFIXES = ["/sign-in", "/sign-up"];
 
 /**

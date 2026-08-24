@@ -1,0 +1,91 @@
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { prisma } from "@/lib/prisma";
+import { createUser, deleteUser } from "@/lib/repositories/user-repository";
+import { createAssistantMessage, findAssistantMessagesByUserId } from "@/lib/repositories/assistant-message-repository";
+import { getClient } from "@/lib/ai/anthropic-client";
+import { askAssistant, RateLimitError } from "@/lib/services/assistant-service";
+
+vi.mock("@/lib/ai/anthropic-client", () => ({
+  ASSISTANT_MODEL: "claude-sonnet-5",
+  getClient: vi.fn(),
+  isAssistantConfigured: vi.fn(() => true),
+}));
+
+describe("assistant-service", () => {
+  const createdUserIds: string[] = [];
+
+  afterAll(async () => {
+    await Promise.all(createdUserIds.map((id) => deleteUser(id).catch(() => undefined)));
+    await prisma.$disconnect();
+  });
+
+  afterEach(() => {
+    vi.mocked(getClient).mockReset();
+  });
+
+  async function makeUser() {
+    const user = await createUser({
+      email: `assistant-service-test-${Date.now()}-${Math.random()}@example.com`,
+      passwordHash: "unused-in-this-test",
+      name: "Assistant Service Test",
+      taxSlabPercent: "30",
+    });
+    createdUserIds.push(user.id);
+    return user;
+  }
+
+  it("rejects once the daily cap is hit, before ever calling the model, and writes no new row", async () => {
+    const user = await makeUser();
+    for (let i = 0; i < 40; i++) {
+      await createAssistantMessage(user.id, "USER", `message ${i}`);
+    }
+
+    await expect(askAssistant(user.id, "one more question")).rejects.toBeInstanceOf(RateLimitError);
+    expect(vi.mocked(getClient)).not.toHaveBeenCalled();
+
+    const messages = await findAssistantMessagesByUserId(user.id);
+    expect(messages).toHaveLength(40);
+  });
+
+  it("drives the tool-use loop: calls a tool, then returns the model's final text, persisting both turns", async () => {
+    const user = await makeUser();
+
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", id: "toolu_1", name: "get_today_snapshot", input: {} }],
+      })
+      .mockResolvedValueOnce({
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Your headroom is fine." }],
+      });
+    vi.mocked(getClient).mockReturnValue({ messages: { create } } as never);
+
+    const reply = await askAssistant(user.id, "What's my headroom?");
+
+    expect(reply).toBe("Your headroom is fine.");
+    expect(create).toHaveBeenCalledTimes(2);
+
+    const messages = await findAssistantMessagesByUserId(user.id);
+    expect(messages.map((m) => [m.role, m.content])).toEqual([
+      ["USER", "What's my headroom?"],
+      ["ASSISTANT", "Your headroom is fine."],
+    ]);
+  });
+
+  it("stops after MAX_TOOL_ROUNDS and returns a fallback message rather than looping forever", async () => {
+    const user = await makeUser();
+
+    const create = vi.fn().mockResolvedValue({
+      stop_reason: "tool_use",
+      content: [{ type: "tool_use", id: "toolu_x", name: "get_today_snapshot", input: {} }],
+    });
+    vi.mocked(getClient).mockReturnValue({ messages: { create } } as never);
+
+    const reply = await askAssistant(user.id, "keep calling tools forever");
+
+    expect(create).toHaveBeenCalledTimes(5);
+    expect(reply.length).toBeGreaterThan(0);
+  });
+});
