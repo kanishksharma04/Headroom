@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { toIstDateInputValue } from "@/lib/dates";
 import { updateUser } from "@/lib/repositories/user-repository";
-import { addAccountForUser } from "@/lib/services/account-service";
+import { addAccountForUser, listAccountsForUser } from "@/lib/services/account-service";
 import { addCommitmentForUser } from "@/lib/services/commitment-service";
 import { setVariableSpendBaselineForUser } from "@/lib/services/variable-spend-service";
 import { parseStatementCsv } from "@/lib/import/statement-csv";
@@ -119,6 +119,15 @@ export async function confirmImportedOnboardingAction(
   formData: FormData,
 ): Promise<ConfirmImportState> {
   const userId = await requireUserId();
+
+  // Mirrors the page-level guard in app/onboarding/import/page.tsx: a
+  // submission that lands after onboarding already completed (back button,
+  // double submit, two tabs) sends the user on rather than creating a
+  // duplicate account and commitment set.
+  const existingAccounts = await listAccountsForUser(userId);
+  if (existingAccounts.length > 0) {
+    redirect("/today");
+  }
 
   const account = importedAccountSchema.safeParse({
     accountName: formData.get("accountName"),
