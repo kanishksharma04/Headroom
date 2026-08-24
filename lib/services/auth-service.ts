@@ -1,5 +1,11 @@
 import bcrypt from "bcrypt";
-import { createUser, findUserByEmail, findUserById, updateUser } from "@/lib/repositories/user-repository";
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  updateBackupCodeHashesIfUnchanged,
+  updateUser,
+} from "@/lib/repositories/user-repository";
 import { generateTotpSecret, totpProvisioningUri, verifyTotpCode } from "@/lib/auth/totp";
 import { consumeBackupCode, generateBackupCodes, hashBackupCodes } from "@/lib/auth/backup-codes";
 import { NotFoundError } from "@/lib/services/account-service";
@@ -34,10 +40,18 @@ export async function registerUser(input: SignUpInput): Promise<User> {
 // Two-factor authentication (TOTP)
 // ---------------------------------------------------------------------------
 
+const MAX_BACKUP_CODE_CAS_ATTEMPTS = 5;
+
 /**
  * Checks a sign-in's 6-digit TOTP code, falling back to a one-time backup
  * code. A matched backup code is consumed immediately — removed from the
  * stored set — so it can never be replayed.
+ *
+ * The removal is a compare-and-swap against the array we read, retried
+ * against a fresh read on conflict: two concurrent attempts with the same
+ * backup code both read the same starting set, but only one write can land,
+ * so the loser re-reads and finds the code already gone rather than both
+ * succeeding.
  */
 export async function verifyTwoFactorCode(user: User, code: string): Promise<boolean> {
   if (!user.totpSecret) {
@@ -47,12 +61,23 @@ export async function verifyTwoFactorCode(user: User, code: string): Promise<boo
     return true;
   }
 
-  const result = await consumeBackupCode(code, user.totpBackupCodeHashes);
-  if (!result) {
-    return false;
+  let currentHashes = user.totpBackupCodeHashes;
+  for (let attempt = 0; attempt < MAX_BACKUP_CODE_CAS_ATTEMPTS; attempt++) {
+    const result = await consumeBackupCode(code, currentHashes);
+    if (!result) {
+      return false;
+    }
+    const applied = await updateBackupCodeHashesIfUnchanged(user.id, currentHashes, result.remainingHashes);
+    if (applied) {
+      return true;
+    }
+    const latest = await findUserById(user.id);
+    if (!latest) {
+      return false;
+    }
+    currentHashes = latest.totpBackupCodeHashes;
   }
-  await updateUser(user.id, { totpBackupCodeHashes: result.remainingHashes });
-  return true;
+  return false;
 }
 
 /**

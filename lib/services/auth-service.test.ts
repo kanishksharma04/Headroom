@@ -113,6 +113,22 @@ describe("auth-service — two-factor authentication", () => {
     expect(secondUse).toBe(false);
   });
 
+  it("verifyTwoFactorCode only lets one of two concurrent uses of the same backup code succeed", async () => {
+    const user = await makeUser();
+    const { secret } = await beginTotpEnrollment(user.id);
+    const { backupCodes } = (await confirmTotpEnrollment(user.id, codeFor(secret)))!;
+
+    const fetched = await findUserById(user.id);
+    const [first, second] = await Promise.all([
+      verifyTwoFactorCode(fetched!, backupCodes[0]),
+      verifyTwoFactorCode(fetched!, backupCodes[0]),
+    ]);
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+
+    const afterUse = await findUserById(user.id);
+    expect(afterUse!.totpBackupCodeHashes).toHaveLength(7);
+  });
+
   it("disableTotpForUser requires the correct password, and clears every TOTP field on success", async () => {
     const user = await makeUser();
     const { secret } = await beginTotpEnrollment(user.id);
