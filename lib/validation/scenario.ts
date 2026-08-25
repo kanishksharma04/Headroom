@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { positiveMoneyStringSchema } from "@/lib/validation/money";
+import { nonNegativeMoneyStringSchema, positiveMoneyStringSchema } from "@/lib/validation/money";
 import { dateOnlyString } from "@/lib/validation/date";
 import { percentStringSchema } from "@/lib/validation/percent";
 
@@ -32,3 +32,9 @@ export const refinanceCheckSchema = z.object({
 });
 
 export type RefinanceCheckInput = z.infer<typeof refinanceCheckSchema>;
+
+export const insuranceAdequacyCheckSchema = z.object({
+  existingCoverage: nonNegativeMoneyStringSchema({ maxDecimalPlaces: 2 }),
+});
+
+export type InsuranceAdequacyCheckInput = z.infer<typeof insuranceAdequacyCheckSchema>;

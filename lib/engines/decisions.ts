@@ -779,3 +779,89 @@ export function compareRefinance(input: RefinanceInput): RefinanceResult {
     ],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Life insurance adequacy
+// ---------------------------------------------------------------------------
+
+const DEFAULT_INCOME_REPLACEMENT_YEARS = 10;
+
+export type LifeInsuranceAdequacyInput = {
+  /** Used only to derive the current monthly salary — the same active-SALARY-commitment total every other tool reads. */
+  commitments: HeadroomCommitmentInput[];
+  /** Every outstanding loan balance — your family shouldn't inherit it. */
+  outstandingDebt: Decimal.Value;
+  /** Every account and asset on Worth — a resource your family could draw on directly, on top of any payout. */
+  totalAssets: Decimal.Value;
+  /** Sum of every goal's shortfallAtTargetDate — what each goal would still need if contributions stopped today. */
+  goalShortfallTotal: Decimal.Value;
+  /** The total sum assured across every life insurance policy you already hold. */
+  existingCoverage: Decimal.Value;
+  /** Years of income to replace. Default 10 — a common rule-of-thumb multiple, not derived from your data. */
+  incomeReplacementYears?: number;
+};
+
+export type LifeInsuranceAdequacyResult = {
+  currentMonthlyIncome: Money;
+  incomeReplacementValue: Money;
+  debtCoverage: Money;
+  goalCoverage: Money;
+  /** incomeReplacementValue + debtCoverage + goalCoverage. */
+  requiredCover: Money;
+  existingCoverage: Money;
+  totalAssets: Money;
+  /** existingCoverage + totalAssets. */
+  availableResources: Money;
+  /** availableResources − requiredCover. Negative means under-covered (a real shortfall); positive means a surplus. Signed this way, not the other, so `colorize` — which flags negative as the one that needs attention — highlights the right case. */
+  netPosition: Money;
+  assumptions: string[];
+};
+
+/**
+ * Whether existing life insurance (plus what you already own) would
+ * actually cover what your family would need — lost income, outstanding
+ * debt, and unfinished goals — if you weren't there to keep earning.
+ * Every input here is either read straight off Worth and Ahead or asked
+ * for directly (existing coverage isn't tracked anywhere else in the
+ * app); nothing is estimated from a health-score-style heuristic.
+ */
+export function assessLifeInsuranceAdequacy(input: LifeInsuranceAdequacyInput): LifeInsuranceAdequacyResult {
+  const years = input.incomeReplacementYears ?? DEFAULT_INCOME_REPLACEMENT_YEARS;
+
+  const salaryCommitments = input.commitments.filter(
+    (c) => c.isActive && c.direction === "INFLOW" && c.category === "SALARY",
+  );
+  if (salaryCommitments.length === 0) {
+    throw new Error("Add a salary commitment on Ahead before checking insurance adequacy.");
+  }
+  const currentMonthlyIncome = sum(salaryCommitments.map((c) => c.amount));
+
+  const incomeReplacementValue = currentMonthlyIncome.times(12).times(years);
+  const debtCoverage = toMoney(input.outstandingDebt);
+  const goalCoverage = toMoney(input.goalShortfallTotal);
+  const requiredCover = incomeReplacementValue.plus(debtCoverage).plus(goalCoverage);
+
+  const existingCoverage = toMoney(input.existingCoverage);
+  const totalAssets = toMoney(input.totalAssets);
+  const availableResources = existingCoverage.plus(totalAssets);
+
+  const netPosition = availableResources.minus(requiredCover);
+
+  return {
+    currentMonthlyIncome,
+    incomeReplacementValue,
+    debtCoverage,
+    goalCoverage,
+    requiredCover,
+    existingCoverage,
+    totalAssets,
+    availableResources,
+    netPosition,
+    assumptions: [
+      `Income replacement assumes ${years} years of your current monthly salary — a common rule-of-thumb multiple, not personalised to your dependents or age.`,
+      "Debt coverage is every outstanding loan balance on Worth.",
+      "Goal coverage is what each of your goals would still be short of its inflation-adjusted target if contributions stopped today — the same shortfall Goals itself reports.",
+      "Every account and asset on Worth counts as an available resource, on top of any insurance coverage you already hold — this is about life cover specifically, not health insurance.",
+    ],
+  };
+}

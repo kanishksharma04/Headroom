@@ -7,6 +7,7 @@ import {
   affordabilityCheckSchema,
   incomeChangeCheckSchema,
   refinanceCheckSchema,
+  insuranceAdequacyCheckSchema,
 } from "@/lib/validation/scenario";
 import {
   removeScenarioForUser,
@@ -15,6 +16,8 @@ import {
 } from "@/lib/services/scenario-service";
 import { findUserById } from "@/lib/repositories/user-repository";
 import { findAccountsByUserId } from "@/lib/repositories/account-repository";
+import { findAssetsByUserId } from "@/lib/repositories/asset-repository";
+import { findLiabilitiesByUserId } from "@/lib/repositories/liability-repository";
 import { findCommitmentsByUserId } from "@/lib/repositories/commitment-repository";
 import { findGoalsByUserId } from "@/lib/repositories/goal-repository";
 import { findVariableSpendBaselineByUserId } from "@/lib/repositories/variable-spend-baseline-repository";
@@ -25,7 +28,10 @@ import {
   incomeChangeImpact,
   jobLossRunway,
   compareRefinance,
+  assessLifeInsuranceAdequacy,
 } from "@/lib/engines/decisions";
+import { evaluateGoal } from "@/lib/engines/goals";
+import { sum } from "@/lib/money";
 
 export type FormState = { error?: string };
 
@@ -349,6 +355,80 @@ export async function checkRefinanceAction(
       lostDeductionValue: result.lostDeductionValue.toFixed(2),
       netBenefit: result.netBenefit.toFixed(2),
       breakEvenMonths: result.breakEvenMonths,
+      assumptions: result.assumptions,
+    },
+  };
+}
+
+export type InsuranceAdequacyResultView = {
+  currentMonthlyIncome: string;
+  incomeReplacementValue: string;
+  debtCoverage: string;
+  goalCoverage: string;
+  requiredCover: string;
+  existingCoverage: string;
+  totalAssets: string;
+  availableResources: string;
+  netPosition: string;
+  assumptions: string[];
+};
+
+export type InsuranceAdequacyFormState = { error?: string; result?: InsuranceAdequacyResultView };
+
+export async function checkInsuranceAdequacyAction(
+  _prevState: InsuranceAdequacyFormState,
+  formData: FormData,
+): Promise<InsuranceAdequacyFormState> {
+  const userId = await requireUserId();
+  const parsed = insuranceAdequacyCheckSchema.safeParse({
+    existingCoverage: formData.get("existingCoverage"),
+  });
+  if (!parsed.success) {
+    return { error: firstIssueMessage(parsed.error) };
+  }
+
+  const [commitments, liabilities, assets, accounts, goals] = await Promise.all([
+    findCommitmentsByUserId(userId, { activeOnly: true }),
+    findLiabilitiesByUserId(userId),
+    findAssetsByUserId(userId),
+    findAccountsByUserId(userId),
+    findGoalsByUserId(userId),
+  ]);
+
+  const now = new Date();
+  const outstandingDebt = sum(liabilities.map((l) => l.outstandingPrincipal));
+  const totalAssets = sum([
+    ...accounts.map((a) => a.currentBalance),
+    ...assets.map((a) => a.currentValue),
+  ]);
+  const goalShortfallTotal = sum(
+    goals.map((g) => evaluateGoal(g, now).shortfallAtTargetDate),
+  );
+
+  let result;
+  try {
+    result = assessLifeInsuranceAdequacy({
+      commitments,
+      outstandingDebt,
+      totalAssets,
+      goalShortfallTotal,
+      existingCoverage: parsed.data.existingCoverage,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not compute this." };
+  }
+
+  return {
+    result: {
+      currentMonthlyIncome: result.currentMonthlyIncome.toFixed(2),
+      incomeReplacementValue: result.incomeReplacementValue.toFixed(2),
+      debtCoverage: result.debtCoverage.toFixed(2),
+      goalCoverage: result.goalCoverage.toFixed(2),
+      requiredCover: result.requiredCover.toFixed(2),
+      existingCoverage: result.existingCoverage.toFixed(2),
+      totalAssets: result.totalAssets.toFixed(2),
+      availableResources: result.availableResources.toFixed(2),
+      netPosition: result.netPosition.toFixed(2),
       assumptions: result.assumptions,
     },
   };

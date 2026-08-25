@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assessLifeInsuranceAdequacy,
   checkAffordability,
   compareRefinance,
   deriveRemainingScheduleParams,
@@ -618,5 +619,95 @@ describe("compareRefinance", () => {
   it("under the Old regime, a real interest reduction produces a nonzero lost deduction", () => {
     const result = compareRefinance(input);
     expect(result.lostDeductionValue.greaterThan(0)).toBe(true);
+  });
+});
+
+describe("assessLifeInsuranceAdequacy", () => {
+  const salaryCommitment = commitment({
+    id: "salary",
+    name: "Salary",
+    direction: "INFLOW",
+    category: "SALARY",
+    amount: "100000",
+    frequency: "MONTHLY",
+  });
+
+  it("required cover is exactly 10 years of income plus debt plus goal shortfalls", () => {
+    const result = assessLifeInsuranceAdequacy({
+      commitments: [salaryCommitment],
+      outstandingDebt: "2000000",
+      totalAssets: "1000000",
+      goalShortfallTotal: "500000",
+      existingCoverage: "5000000",
+    });
+
+    expect(result.currentMonthlyIncome.toFixed(2)).toBe("100000.00");
+    expect(result.incomeReplacementValue.toFixed(2)).toBe("12000000.00"); // 100000 * 12 * 10
+    expect(result.debtCoverage.toFixed(2)).toBe("2000000.00");
+    expect(result.goalCoverage.toFixed(2)).toBe("500000.00");
+    expect(result.requiredCover.toFixed(2)).toBe("14500000.00");
+    expect(result.availableResources.toFixed(2)).toBe("6000000.00"); // 5000000 + 1000000
+    // Signed availableResources - requiredCover, so a real shortfall is negative.
+    expect(result.netPosition.toFixed(2)).toBe("-8500000.00"); // 6000000 - 14500000
+  });
+
+  it("reports a positive net position — a surplus — when existing resources already exceed what's required", () => {
+    const result = assessLifeInsuranceAdequacy({
+      commitments: [salaryCommitment],
+      outstandingDebt: "0",
+      totalAssets: "0",
+      goalShortfallTotal: "0",
+      existingCoverage: "20000000",
+    });
+    expect(result.netPosition.greaterThan(0)).toBe(true);
+  });
+
+  it("honours a custom income-replacement multiple instead of the 10-year default", () => {
+    const result = assessLifeInsuranceAdequacy({
+      commitments: [salaryCommitment],
+      outstandingDebt: "0",
+      totalAssets: "0",
+      goalShortfallTotal: "0",
+      existingCoverage: "0",
+      incomeReplacementYears: 5,
+    });
+    expect(result.incomeReplacementValue.toFixed(2)).toBe("6000000.00"); // 100000 * 12 * 5
+  });
+
+  it("sums more than one active salary commitment", () => {
+    const result = assessLifeInsuranceAdequacy({
+      commitments: [
+        salaryCommitment,
+        commitment({ id: "freelance", name: "Freelance", direction: "INFLOW", category: "SALARY", amount: "20000" }),
+      ],
+      outstandingDebt: "0",
+      totalAssets: "0",
+      goalShortfallTotal: "0",
+      existingCoverage: "0",
+    });
+    expect(result.currentMonthlyIncome.toFixed(2)).toBe("120000.00");
+  });
+
+  it("ignores an inactive salary commitment", () => {
+    const result = assessLifeInsuranceAdequacy({
+      commitments: [salaryCommitment, commitment({ id: "old-job", direction: "INFLOW", category: "SALARY", amount: "50000", isActive: false })],
+      outstandingDebt: "0",
+      totalAssets: "0",
+      goalShortfallTotal: "0",
+      existingCoverage: "0",
+    });
+    expect(result.currentMonthlyIncome.toFixed(2)).toBe("100000.00");
+  });
+
+  it("throws a helpful error when there's no salary commitment to base income replacement on", () => {
+    expect(() =>
+      assessLifeInsuranceAdequacy({
+        commitments: [],
+        outstandingDebt: "0",
+        totalAssets: "0",
+        goalShortfallTotal: "0",
+        existingCoverage: "0",
+      }),
+    ).toThrow(/salary commitment/i);
   });
 });

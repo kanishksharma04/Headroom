@@ -82,11 +82,13 @@ Six screens, reached from the sidebar:
 - **Goals** tracks savings goals — a child's education, a house down
   payment — adjusted for inflation, with an honest read on whether your
   current pace actually gets you there on time.
-- **Decide** has five calculators for the big choices: prepay a loan or
+- **Decide** has six calculators for the big choices: prepay a loan or
   invest the money instead; whether refinancing a loan elsewhere actually
   pays for itself; can you afford a purchase without wrecking your safety
-  net; what a raise or a pay cut actually does to your finances; and how
-  long your savings would last if your income stopped today.
+  net; what a raise or a pay cut actually does to your finances; how long
+  your savings would last if your income stopped today; and whether your
+  life insurance would actually cover your family if you weren't there to
+  keep earning.
 - **Records** is every account, loan, and recurring payment you've entered,
   in one searchable, editable list — for double-checking the raw numbers
   behind everything else.
@@ -205,14 +207,16 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   amortisation schedules, prepayment simulation (reduce-tenure or
   reduce-EMI), and the Section 24(b) tax-deduction-capped effective
   post-tax cost of debt.
-- **`decisions.ts`** — the Decide screen's five tools: prepay-vs-invest, a
+- **`decisions.ts`** — the Decide screen's six tools: prepay-vs-invest, a
   refinance comparison (staying on a loan versus moving its full
   outstanding balance to a new rate elsewhere, net of the old loan's
   foreclosure penalty, the new lender's processing fee, and any Section
   24(b) deduction given up), an affordability check, an income-change model
-  (a raise or a pay cut, shown as a 90-day cash-flow projection), and a
+  (a raise or a pay cut, shown as a 90-day cash-flow projection), a
   job-loss runway (how long your balance lasts with salary stopped and
-  everything else unchanged).
+  everything else unchanged), and a life-insurance adequacy check (income
+  replacement plus outstanding debt plus each goal's own shortfall,
+  against what you already hold and own).
 - **`goals.ts`** — evaluates a savings goal against an inflation-adjusted
   target: what your current pace projects to by the target date, the
   monthly contribution that would close any gap, and an on-track / at-risk
@@ -292,6 +296,13 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   for lacking the other. A subscription the push service reports dead
   (410/404) is deleted immediately rather than retried on the next run.
   (`lib/services/attention-digest-service.ts`, `lib/push/send-push.ts`)
+- **The insurance-adequacy check's net position is signed surplus-first,
+  not shortfall-first.** `colorize` on `Money` only ever flags a negative
+  value red — so the figure is `available − required`, not the more
+  naturally-worded `required − available`, specifically so a real
+  shortfall (the case worth flagging) is the negative one, matching every
+  other signed figure in the app. (`assessLifeInsuranceAdequacy` in
+  `lib/engines/decisions.ts`)
 
 ## Money rules
 
