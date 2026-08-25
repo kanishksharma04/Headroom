@@ -178,8 +178,8 @@ lib/
   market-data/    the AMFI mutual fund NAV client behind price sync
   money.ts, dates.ts, app-url.ts, format-*.ts   shared primitives
 prisma/
-  schema.prisma       the domain model
-  seed.ts             demo user generator
+  schema.prisma   the domain model
+  seed.ts         demo user generator
 e2e/                  Playwright smoke test
 ```
 
