@@ -37,19 +37,19 @@ demo@headroom.app / headroom-demo
 
 ### Environment variables
 
-| Variable         | Purpose                                                                       |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `DATABASE_URL`   | Postgres connection string (Neon in production). Required.                     |
-| `AUTH_SECRET`    | Auth.js session secret — generate with `npx auth secret`. Required.            |
-| `AUTH_URL`       | The app's canonical URL (e.g. `http://localhost:3000`). Required.              |
-| `RESEND_API_KEY` | Enables the daily attention-digest email. Optional — unset means it's skipped. |
-| `EMAIL_FROM`     | Digest sender address, e.g. `Headroom <notifications@headroom.app>`. Optional. |
-| `CRON_SECRET`    | Authorises the cron triggers (digest, price sync, weekly Ask summary). Required in production. |
-| `ANTHROPIC_API_KEY` | Enables the Ask assistant. Optional — unset means `/assistant` shows a "not configured" state. |
-| `ANTHROPIC_MODEL`   | Overrides the Ask assistant's model (default `claude-sonnet-5`). Optional.      |
-| `VAPID_PUBLIC_KEY`  | Enables push notifications for attention items. Optional — unset hides the toggle on `/security`. Generate with `npx web-push generate-vapid-keys`. |
-| `VAPID_PRIVATE_KEY` | Paired with the public key above. Optional, keep secret.                       |
-| `VAPID_SUBJECT`     | A `mailto:` or `https:` contact URI, required by the Web Push protocol itself. |
+| Variable             | Purpose                                                                       |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `DATABASE_URL`       | Postgres connection string (Neon in production). Required.                     |
+| `AUTH_SECRET`        | Auth.js session secret — generate with `npx auth secret`. Required.            |
+| `AUTH_URL`           | The app's canonical URL (e.g. `http://localhost:3000`). Required.              |
+| `RESEND_API_KEY`     | Enables the daily attention-digest email. Optional — unset means it's skipped. |
+| `EMAIL_FROM`         | Digest sender address, e.g. `Headroom <notifications@headroom.app>`. Optional. |
+| `CRON_SECRET`        | Authorises the cron triggers (digest, price sync, weekly Ask summary). Required in production. |
+| `ANTHROPIC_API_KEY`  | Enables the Ask assistant. Optional — unset means `/assistant` shows a "not configured" state. |
+| `ANTHROPIC_MODEL`    | Overrides the Ask assistant's model (default `claude-sonnet-5`). Optional.      |
+| `VAPID_PUBLIC_KEY`   | Enables push notifications for attention items. Optional — unset hides the toggle on `/security`. Generate with `npx web-push generate-vapid-keys`. |
+| `VAPID_PRIVATE_KEY`  | Paired with the public key above. Optional, keep secret.                       |
+| `VAPID_SUBJECT`      | A `mailto:` or `https:` contact URI, required by the Web Push protocol itself. |
 
 ### Scripts
 
