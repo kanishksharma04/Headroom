@@ -78,7 +78,10 @@ Six screens, reached from the sidebar:
   plain-English note on what changed this month and this year and why. If
   you have enough history, it also shows how fast that net worth is
   compounding annually, and if anything is shared with a partner, a split
-  between what's individually yours and what's joint.
+  between what's individually yours and what's joint. A mutual fund asset
+  can opt into daily NAV sync — give it its AMFI scheme code and the units
+  you hold, and Headroom keeps its current value current on its own,
+  pulled from AMFI's own published data, never estimated.
 - **Goals** tracks savings goals — a child's education, a house down
   payment — adjusted for inflation, with an honest read on whether your
   current pace actually gets you there on time.
@@ -149,7 +152,7 @@ app/
   (app)/             today, ahead, worth, goals, decide, assistant, records — the seven screens
                       — plus /security, account management, not an eighth screen
   api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
-  api/cron/            the attention-digest cron trigger
+  api/cron/            the attention-digest, price-sync, and weekly-ask-summary cron triggers
   api/assistant/        the Ask chat endpoint
   onboarding/        the one-time minimal setup flow, plus onboarding/import for the CSV path
 lib/
@@ -163,6 +166,7 @@ lib/
   push/                  the web-push send wrapper (VAPID), same lazy-optional pattern as email/
   auth/                 TOTP and backup-code logic, consumed by auth-service.ts
   ai/                    Ask's Anthropic client, system prompt, and tool definitions
+  market-data/           the AMFI mutual fund NAV client behind price sync
   money.ts, dates.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
@@ -301,6 +305,21 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   periodic check-in never gets shaped by whatever they last happened to
   ask about. (`lib/services/assistant-service.ts`,
   `lib/services/weekly-ask-summary-service.ts`)
+- **Price sync only covers mutual funds, deliberately.** AMFI publishes a
+  free, unauthenticated, reliable daily NAV feed by scheme code
+  (`api.mfapi.in`); there's no equivalent free, reliable source for NSE/BSE
+  stock and ETF prices — the unofficial options that exist are undocumented
+  and can break or rate-limit without notice. Shipping that anyway would
+  mean silently wrong or stale numbers in a "never invents a figure" app,
+  so stocks and ETFs stay manually entered rather than sync on a shaky
+  foundation. Units held is asked for explicitly rather than derived from
+  the existing current value at the moment sync turns on — reverse-deriving
+  units from a possibly-stale value would just be inventing a different
+  number; asking for what the user's own account statement actually says is
+  the honest version. `lastPriceSyncAt` advances on every attempt, success
+  or failure, so "last checked" and "last actually updated" (which
+  `lastPriceSyncError` distinguishes) aren't conflated.
+  (`lib/market-data/mf-nav-client.ts`, `lib/services/price-sync-service.ts`)
 - **Sign-in is rate-limited per email, not per IP.** An attacker who
   already has (or is guessing at) one specific account's password cares
   about that account regardless of how many IPs they attempt from — so
@@ -387,14 +406,14 @@ Deploys to [Vercel](https://vercel.com) — see `vercel.json` (Mumbai region;
 the build explicitly runs `prisma generate` before `prisma migrate deploy`,
 rather than relying on Prisma's own install-script to generate the client,
 since Vercel's build image can gate package install scripts; a daily cron
-trigger handles the attention digest, a weekly one handles Ask's opt-in
-check-in). Before the first deploy, set in the project's
-environment variables:
+trigger handles the attention digest, another handles mutual fund price
+sync, and a weekly one handles Ask's opt-in check-in). Before the first
+deploy, set in the project's environment variables:
 
 - `DATABASE_URL` pointed at a Neon Postgres instance, `AUTH_SECRET`, and
   `AUTH_URL` — all required.
-- `CRON_SECRET` — required, or both cron endpoints stay disabled (each
-  fails closed rather than running unauthenticated).
+- `CRON_SECRET` — required, or all three cron endpoints stay disabled
+  (each fails closed rather than running unauthenticated).
 - `RESEND_API_KEY` and `EMAIL_FROM` — optional; without them the app runs
   fine, the digest just never sends.
 - `ANTHROPIC_API_KEY` — optional; without it, `/assistant` shows a

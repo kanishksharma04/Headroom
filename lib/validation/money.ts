@@ -39,3 +39,11 @@ export function positiveMoneyStringSchema(options?: { maxDecimalPlaces?: number 
     "Enter an amount greater than zero.",
   );
 }
+
+/** Same as {@link nonNegativeMoneyStringSchema}, but treats an empty string as "not provided". */
+export function optionalNonNegativeMoneyStringSchema(options?: { maxDecimalPlaces?: number }) {
+  return z.preprocess(
+    (value) => (value === "" || value === undefined || value === null ? undefined : value),
+    nonNegativeMoneyStringSchema(options).optional(),
+  );
+}

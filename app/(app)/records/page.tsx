@@ -312,6 +312,8 @@ export default async function RecordsPage({
                     expectedAnnualReturnPercent: a.expectedAnnualReturnPercent?.toString() ?? null,
                     isJoint: a.isJoint,
                     notes: a.notes,
+                    amfiSchemeCode: a.amfiSchemeCode,
+                    unitsHeld: a.unitsHeld?.toString() ?? null,
                   }}
                 />
               </div>

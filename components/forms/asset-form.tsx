@@ -28,6 +28,8 @@ export type ExistingAsset = {
   expectedAnnualReturnPercent: string | null;
   isJoint: boolean;
   notes: string | null;
+  amfiSchemeCode: string | null;
+  unitsHeld: string | null;
 };
 
 export function AssetForm({ todayIso, existing }: { todayIso: string; existing?: ExistingAsset }) {
@@ -108,6 +110,33 @@ export function AssetForm({ todayIso, existing }: { todayIso: string; existing?:
         <Label htmlFor="asset-notes">Notes (optional)</Label>
         <Textarea id="asset-notes" name="notes" rows={2} defaultValue={existing?.notes ?? undefined} />
       </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="asset-amfi-code">AMFI scheme code (optional)</Label>
+          <Input
+            id="asset-amfi-code"
+            name="amfiSchemeCode"
+            inputMode="numeric"
+            placeholder="119551"
+            defaultValue={existing?.amfiSchemeCode ?? undefined}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="asset-units-held">Units held (optional)</Label>
+          <Input
+            id="asset-units-held"
+            name="unitsHeld"
+            inputMode="decimal"
+            placeholder="1250.5"
+            defaultValue={existing?.unitsHeld ?? undefined}
+          />
+        </div>
+      </div>
+      <p className="text-muted-foreground -mt-2 text-xs">
+        For mutual funds only — enter both to turn on daily NAV sync, which keeps current value and
+        valued-as-of up to date automatically.
+      </p>
 
       <label className="flex items-center gap-2 text-sm">
         <Checkbox name="isJoint" defaultChecked={existing?.isJoint} />

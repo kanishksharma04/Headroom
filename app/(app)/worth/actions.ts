@@ -11,6 +11,7 @@ import {
   removeAccountForUser,
 } from "@/lib/services/account-service";
 import { addAssetForUser, editAssetForUser, removeAssetForUser } from "@/lib/services/asset-service";
+import { syncAssetPriceForUser } from "@/lib/services/price-sync-service";
 import {
   addLiabilityForUser,
   editLiabilityForUser,
@@ -90,6 +91,8 @@ function parseAssetForm(formData: FormData) {
     expectedAnnualReturnPercent: formData.get("expectedAnnualReturnPercent"),
     isJoint: formData.get("isJoint") === "on",
     notes: formData.get("notes"),
+    amfiSchemeCode: formData.get("amfiSchemeCode"),
+    unitsHeld: formData.get("unitsHeld"),
   });
 }
 
@@ -127,6 +130,13 @@ export async function updateAssetAction(
 export async function deleteAssetAction(assetId: string): Promise<void> {
   const userId = await requireUserId();
   await removeAssetForUser(userId, assetId);
+  revalidatePath("/worth");
+  revalidatePath("/records");
+}
+
+export async function syncAssetPriceAction(assetId: string): Promise<void> {
+  const userId = await requireUserId();
+  await syncAssetPriceForUser(userId, assetId);
   revalidatePath("/worth");
   revalidatePath("/records");
 }

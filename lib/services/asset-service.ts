@@ -25,6 +25,8 @@ export async function addAssetForUser(userId: string, input: AssetFormInput): Pr
     expectedAnnualReturnPercent: input.expectedAnnualReturnPercent ?? null,
     isJoint: input.isJoint,
     notes: input.notes ?? null,
+    amfiSchemeCode: input.amfiSchemeCode ?? null,
+    unitsHeld: input.unitsHeld ?? null,
   });
   await captureNetWorthSnapshotForUser(userId, new Date());
   return asset;
@@ -53,6 +55,13 @@ export async function editAssetForUser(
     expectedAnnualReturnPercent: input.expectedAnnualReturnPercent ?? null,
     isJoint: input.isJoint,
     notes: input.notes ?? null,
+    amfiSchemeCode: input.amfiSchemeCode ?? null,
+    unitsHeld: input.unitsHeld ?? null,
+    // The form is the source of truth for these fields; sync status is
+    // exclusively written by the price-sync service and would otherwise go
+    // stale the moment a scheme code or unit count changes here.
+    lastPriceSyncAt: null,
+    lastPriceSyncError: null,
   });
   await captureNetWorthSnapshotForUser(userId, new Date());
   return asset;

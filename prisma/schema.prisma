@@ -155,6 +155,16 @@ model Asset {
   expectedAnnualReturnPercent Decimal?  @db.Decimal(6, 3)
   isJoint                     Boolean   @default(false)
   notes                       String?
+  /// AMFI scheme code, e.g. "119551" — set together with unitsHeld to opt a
+  /// MUTUAL_FUND asset into daily price sync. Null means sync is off.
+  amfiSchemeCode              String?
+  unitsHeld                   Decimal?  @db.Decimal(18, 4)
+  /// When the last sync attempt (success or failure) ran — set only by the
+  /// price-sync service, never by the create/edit form.
+  lastPriceSyncAt             DateTime?
+  /// Null on the last successful sync; set to a user-facing message when
+  /// the last attempt failed (bad scheme code, source unreachable, ...).
+  lastPriceSyncError          String?
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 

@@ -13,6 +13,11 @@ export function findAssetsByUserId(userId: string): Promise<Asset[]> {
   return prisma.asset.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
 }
 
+/** Every asset across every user that has opted into daily price sync. */
+export function findAssetsWithPriceSyncEnabled(): Promise<Asset[]> {
+  return prisma.asset.findMany({ where: { amfiSchemeCode: { not: null } } });
+}
+
 export function updateAsset(id: string, data: Prisma.AssetUpdateInput): Promise<Asset> {
   return prisma.asset.update({ where: { id }, data });
 }

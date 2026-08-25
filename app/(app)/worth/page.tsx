@@ -1,18 +1,18 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Download, FileText, Trash2 } from "lucide-react";
+import { Download, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getWorthOverviewForUser } from "@/lib/services/worth-service";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/validation/account";
 import { ASSET_TYPE_LABELS } from "@/lib/validation/asset";
 import { LIABILITY_TYPE_LABELS } from "@/lib/validation/liability";
 import { toIstDateInputValue, todayIst } from "@/lib/dates";
-import { formatLongDate } from "@/lib/format-date";
+import { formatLongDate, formatShortDate } from "@/lib/format-date";
 import { describeNetWorthAttribution } from "@/lib/format-attribution";
 import { NetWorthHistoryChart } from "@/components/worth/net-worth-history-chart";
 import { sum } from "@/lib/money";
 import type { Asset, Liability } from "@/lib/generated/prisma/client";
-import { deleteAccountAction, deleteAssetAction, deleteLiabilityAction } from "./actions";
+import { deleteAccountAction, deleteAssetAction, deleteLiabilityAction, syncAssetPriceAction } from "./actions";
 import { AddEntityDialog } from "@/components/forms/add-entity-dialog";
 import { AccountForm } from "@/components/forms/account-form";
 import { AssetForm } from "@/components/forms/asset-form";
@@ -242,14 +242,37 @@ export default async function WorthPage() {
                     <ul className="divide-y">
                       {items.map((asset) => (
                         <li key={asset.id} className="flex items-center justify-between py-2.5">
-                          <p className="text-sm font-medium">
-                            {asset.name}
-                            {asset.isJoint ? (
-                              <span className="text-muted-foreground font-normal"> · Joint</span>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {asset.name}
+                              {asset.isJoint ? (
+                                <span className="text-muted-foreground font-normal"> · Joint</span>
+                              ) : null}
+                            </p>
+                            {asset.amfiSchemeCode ? (
+                              <p className="text-muted-foreground text-xs">
+                                {asset.lastPriceSyncError
+                                  ? `Sync failed: ${asset.lastPriceSyncError}`
+                                  : asset.lastPriceSyncAt
+                                    ? `Synced ${formatShortDate(asset.lastPriceSyncAt)}`
+                                    : "Not synced yet"}
+                              </p>
                             ) : null}
-                          </p>
+                          </div>
                           <div className="flex items-center gap-3">
                             <Money value={asset.currentValue} className="text-sm font-medium" />
+                            {asset.amfiSchemeCode ? (
+                              <form action={syncAssetPriceAction.bind(null, asset.id)}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  type="submit"
+                                  aria-label={`Sync ${asset.name}'s price`}
+                                >
+                                  <RefreshCw />
+                                </Button>
+                              </form>
+                            ) : null}
                             <form action={deleteAssetAction.bind(null, asset.id)}>
                               <Button
                                 variant="ghost"
