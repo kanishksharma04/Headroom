@@ -55,9 +55,14 @@ export default async function WorthPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Worth</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Where you stand, in full.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Worth</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Where you stand, in full.</p>
+        </div>
+        <Button render={<Link href="/worth/statement" />} nativeButton={false} variant="outline" size="sm">
+          <FileText /> Statement
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

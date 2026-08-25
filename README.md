@@ -118,7 +118,10 @@ sidebar's icon row instead:
   *new* recurring payment, while leaving whatever's already tracked alone.
   Going the other way, Worth can export your net worth history as CSV, and
   any loan can export its full repayment schedule as CSV or a print-ready
-  page.
+  page — and Worth's "Statement" pulls everything (net worth, every
+  account/asset/liability, goals) into one print-ready financial
+  statement, the same "Print / Save as PDF" pattern the loan schedule
+  already uses rather than a separate PDF-generation dependency.
 - **Daily email alerts, and an optional push notification alongside them**
   — if something needs attention (a projected shortfall, a loan payment
   that looks unpaid, a balance gone stale) and you haven't opened the app,
@@ -318,6 +321,15 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   as an explicit assumption rather than silently producing a
   technically-correct but easy-to-misread number.
   (`assessRetirementCorpus` in `lib/engines/decisions.ts`)
+- **The financial statement has no PDF library behind it.** It's an
+  ordinary printable page — the same `print:hidden`/`PrintButton`
+  pattern the loan amortisation schedule already used — that composes
+  Worth and Goals data into one document and lets the browser's own
+  "Print / Save as PDF" produce the file. No server-side rendering
+  dependency, no extra failure mode for a feature that's fundamentally
+  just a different layout of data already on screen elsewhere.
+  (`app/(app)/worth/statement/page.tsx`)
+
 
 ## Money rules
 
