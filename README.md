@@ -165,18 +165,18 @@ app/
   api/assistant/  the Ask chat endpoint
   onboarding/     the one-time minimal setup flow, plus onboarding/import for the CSV path
 lib/
-  engines/           pure functions — every financial calculation lives here
-  services/           orchestrates repositories + engines for a use case
-  repositories/       thin Prisma query wrappers, one per model
-  validation/         Zod schemas, one per form/entity
-  export/              pure CSV formatters, consumed by the api/export route handlers
-  import/               statement CSV parsing + recurring-payment detection, used by onboarding and Worth's statement sync alike
-  email/                digest email content + the Resend send wrapper
-  push/                  the web-push send wrapper (VAPID), same lazy-optional pattern as email/
-  auth/                 TOTP and backup-code logic, consumed by auth-service.ts
-  ai/                    Ask's Anthropic client, system prompt, and tool definitions
-  market-data/           the AMFI mutual fund NAV client behind price sync
-  money.ts, dates.ts, format-*.ts   shared primitives
+  engines/        pure functions — every financial calculation lives here
+  services/       orchestrates repositories + engines for a use case
+  repositories/   thin Prisma query wrappers, one per model
+  validation/     Zod schemas, one per form/entity
+  export/         pure CSV formatters, consumed by the api/export route handlers
+  import/         statement CSV parsing + recurring-payment detection, used by onboarding and Worth's statement sync alike
+  email/          digest email content + the Resend send wrapper
+  push/           the web-push send wrapper (VAPID), same lazy-optional pattern as email/
+  auth/           TOTP and backup-code logic, consumed by auth-service.ts
+  ai/             Ask's Anthropic client, system prompt, and tool definitions
+  market-data/    the AMFI mutual fund NAV client behind price sync
+  money.ts, dates.ts, app-url.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
   seed.ts             demo user generator
