@@ -9,6 +9,7 @@ import {
   disableTotpForUser,
 } from "@/lib/services/auth-service";
 import { totpCodeSchema, totpDisableSchema } from "@/lib/validation/auth";
+import { subscribeUserToPush, unsubscribeFromPush } from "@/lib/services/push-subscription-service";
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -80,5 +81,25 @@ export async function disableTotpAction(
   }
 
   revalidatePath("/security");
+  return {};
+}
+
+/** No form fields — invoked directly with the browser's PushSubscription, not bound via useActionState. */
+export async function subscribeToPushAction(subscription: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}): Promise<{ error?: string }> {
+  const userId = await requireUserId();
+  await subscribeUserToPush(userId, {
+    endpoint: subscription.endpoint,
+    p256dh: subscription.keys.p256dh,
+    auth: subscription.keys.auth,
+  });
+  return {};
+}
+
+export async function unsubscribeFromPushAction(endpoint: string): Promise<{ error?: string }> {
+  await requireUserId();
+  await unsubscribeFromPush(endpoint);
   return {};
 }

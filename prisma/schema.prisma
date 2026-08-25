@@ -121,6 +121,7 @@ model User {
   scenarios             Scenario[]
   netWorthSnapshots     NetWorthSnapshot[]
   assistantMessages     AssistantMessage[]
+  pushSubscriptions     PushSubscription[]
 }
 
 model Account {
@@ -300,6 +301,22 @@ model LoginAttempt {
   createdAt DateTime         @default(now())
 
   @@index([email, kind, createdAt])
+}
+
+/// One row per subscribed browser/device — a user can have several. Web
+/// Push's own protocol identifies a subscription by its endpoint URL, which
+/// is globally unique, so that's the natural key for re-subscribing the
+/// same browser without creating a duplicate row.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 /// A point-in-time record of a user's full balance sheet, captured

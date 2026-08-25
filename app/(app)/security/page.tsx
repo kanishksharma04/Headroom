@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { findUserById } from "@/lib/repositories/user-repository";
+import { getPushPublicKey, isPushConfigured } from "@/lib/push/send-push";
 import { TotpEnrollment } from "@/components/security/totp-enrollment";
 import { TotpDisableForm } from "@/components/security/totp-disable-form";
+import { PushNotificationToggle } from "@/components/security/push-notification-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -36,6 +38,17 @@ export default async function SecurityPage() {
         </CardHeader>
         <CardContent>{user.totpEnabled ? <TotpDisableForm /> : <TotpEnrollment />}</CardContent>
       </Card>
+
+      {isPushConfigured() ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Push notifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PushNotificationToggle publicKey={getPushPublicKey()!} />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

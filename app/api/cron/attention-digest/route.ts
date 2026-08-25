@@ -15,6 +15,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const results = await sendAttentionDigestForAllUsers(new Date());
   const sent = results.filter((r) => r.sent).length;
+  const pushed = results.reduce((total, r) => total + r.pushedDeviceCount, 0);
 
-  return Response.json({ checked: results.length, sent });
+  return Response.json({ checked: results.length, sent, pushed });
 }

@@ -46,6 +46,9 @@ demo@headroom.app / headroom-demo
 | `CRON_SECRET`    | Authorises the digest's cron trigger. Required in production.                  |
 | `ANTHROPIC_API_KEY` | Enables the Ask assistant. Optional — unset means `/assistant` shows a "not configured" state. |
 | `ANTHROPIC_MODEL`   | Overrides the Ask assistant's model (default `claude-sonnet-5`). Optional.      |
+| `VAPID_PUBLIC_KEY`  | Enables push notifications for attention items. Optional — unset hides the toggle on `/security`. Generate with `npx web-push generate-vapid-keys`. |
+| `VAPID_PRIVATE_KEY` | Paired with the public key above. Optional, keep secret.                       |
+| `VAPID_SUBJECT`     | A `mailto:` or `https:` contact URI, required by the Web Push protocol itself. |
 
 ### Scripts
 
@@ -113,10 +116,13 @@ sidebar's icon row instead:
   Going the other way, Worth can export your net worth history as CSV, and
   any loan can export its full repayment schedule as CSV or a print-ready
   page.
-- **Daily email alerts** — if something needs attention (a projected
-  shortfall, a loan payment that looks unpaid, a balance gone stale) and
-  you haven't opened the app, Headroom can email you once a day. Silent on
-  every day there's nothing to say.
+- **Daily email alerts, and an optional push notification alongside them**
+  — if something needs attention (a projected shortfall, a loan payment
+  that looks unpaid, a balance gone stale) and you haven't opened the app,
+  Headroom can email you once a day. Silent on every day there's nothing
+  to say. Turn on push from Security and the same daily check also
+  notifies any device you've subscribed, the moment it runs rather than
+  whenever you next check email.
 - **Install it like an app** — add Headroom to a phone's home screen for
   one-tap access.
 
@@ -145,6 +151,7 @@ lib/
   export/              pure CSV formatters, consumed by the api/export route handlers
   import/               statement CSV parsing + recurring-payment detection, used by onboarding and Worth's statement sync alike
   email/                digest email content + the Resend send wrapper
+  push/                  the web-push send wrapper (VAPID), same lazy-optional pattern as email/
   auth/                 TOTP and backup-code logic, consumed by auth-service.ts
   ai/                    Ask's Anthropic client, system prompt, and tool definitions
   money.ts, dates.ts, format-*.ts   shared primitives
@@ -172,7 +179,10 @@ history the app has, and it's what powers the net worth chart and the
 "what changed and why" attribution on the Worth screen. `LoginAttempt` sits
 outside this `User`-owned hierarchy entirely — it's keyed by the raw email
 string submitted at sign-in, not a `User` relation, so the sign-in rate
-limiter works even against an email with no account at all.
+limiter works even against an email with no account at all. `PushSubscription`
+is back to being `User`-owned — one row per subscribed browser, since a
+person can have several — keyed by that subscription's own globally-unique
+endpoint URL so re-subscribing the same browser updates it in place.
 
 ### The engines (`lib/engines/`)
 
@@ -275,6 +285,13 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   compare nor a TOTP check; cleared on a successful sign-in from inside
   `authorize()` itself, the one place guaranteed to run to completion
   before Auth.js's redirect fires. (`lib/services/login-rate-limit-service.ts`)
+- **Push and email are independent channels off the same daily check, not
+  a fallback pair.** The cron route computes one user's attention items
+  once and sends both, in parallel — a user with both configured gets
+  both, not whichever "wins"; a user with only one set up isn't penalised
+  for lacking the other. A subscription the push service reports dead
+  (410/404) is deleted immediately rather than retried on the next run.
+  (`lib/services/attention-digest-service.ts`, `lib/push/send-push.ts`)
 
 ## Money rules
 
@@ -326,3 +343,7 @@ environment variables:
   (it fails closed rather than running unauthenticated).
 - `RESEND_API_KEY` and `EMAIL_FROM` — optional; without them the app runs
   fine, the digest just never sends.
+- `ANTHROPIC_API_KEY` — optional; without it, `/assistant` shows a
+  "not configured" state instead of a chat box.
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — optional;
+  without them, the push-notification toggle on `/security` doesn't appear.
