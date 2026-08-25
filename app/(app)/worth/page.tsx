@@ -168,9 +168,14 @@ export default async function WorthPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Accounts</CardTitle>
-          <AddEntityDialog triggerLabel="Add account" title="Add account">
-            <AccountForm todayIso={todayIso} />
-          </AddEntityDialog>
+          <div className="flex items-center gap-2">
+            <Button render={<Link href="/worth/sync" />} nativeButton={false} variant="outline" size="sm">
+              Sync statement
+            </Button>
+            <AddEntityDialog triggerLabel="Add account" title="Add account">
+              <AccountForm todayIso={todayIso} />
+            </AddEntityDialog>
+          </div>
         </CardHeader>
         <CardContent>
           {accounts.length === 0 ? (

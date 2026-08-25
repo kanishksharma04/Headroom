@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { detectRecurringCommitments, suggestAccountBalance } from "@/lib/import/detect-commitments";
+import {
+  detectRecurringCommitments,
+  excludeAlreadyTrackedCommitments,
+  suggestAccountBalance,
+} from "@/lib/import/detect-commitments";
 import type { StatementTransaction } from "@/lib/import/statement-csv";
 import { istDate } from "@/lib/dates";
 import { toMoney } from "@/lib/money";
@@ -165,5 +169,41 @@ describe("detectRecurringCommitments", () => {
     const suggestions = detectRecurringCommitments(transactions);
     expect(suggestions[0].name).toBe("Rent");
     expect(suggestions[0].occurrenceCount).toBe(4);
+  });
+});
+
+describe("excludeAlreadyTrackedCommitments", () => {
+  const transactions = [
+    tx({ date: istDate(2026, 0, 5), description: "RENT", debit: toMoney("20000") }),
+    tx({ date: istDate(2026, 1, 5), description: "RENT", debit: toMoney("21000") }),
+    tx({ date: istDate(2026, 0, 15), description: "NETFLIX", debit: toMoney("649") }),
+    tx({ date: istDate(2026, 1, 15), description: "NETFLIX", debit: toMoney("649") }),
+  ];
+
+  it("drops a suggestion that matches an existing commitment by direction and name, ignoring case", () => {
+    const suggestions = detectRecurringCommitments(transactions);
+    const remaining = excludeAlreadyTrackedCommitments(suggestions, [{ name: "rent", direction: "OUTFLOW" }]);
+    expect(remaining.map((s) => s.name)).toEqual(["Netflix"]);
+  });
+
+  it("does not drop a suggestion whose amount changed — matching is by name only, not amount", () => {
+    // The rent suggestion's latest amount (21000) differs from what's on
+    // record for an existing "Rent" commitment (20000) — still excluded,
+    // since a rent increase between syncs is exactly the case this exists
+    // to tolerate, not flag as new.
+    const suggestions = detectRecurringCommitments(transactions);
+    const remaining = excludeAlreadyTrackedCommitments(suggestions, [{ name: "Rent", direction: "OUTFLOW" }]);
+    expect(remaining.some((s) => s.name === "Rent")).toBe(false);
+  });
+
+  it("keeps a suggestion whose name matches but direction doesn't", () => {
+    const suggestions = detectRecurringCommitments(transactions);
+    const remaining = excludeAlreadyTrackedCommitments(suggestions, [{ name: "Rent", direction: "INFLOW" }]);
+    expect(remaining.some((s) => s.name === "Rent")).toBe(true);
+  });
+
+  it("keeps everything when there's nothing existing to match against", () => {
+    const suggestions = detectRecurringCommitments(transactions);
+    expect(excludeAlreadyTrackedCommitments(suggestions, [])).toEqual(suggestions);
   });
 });

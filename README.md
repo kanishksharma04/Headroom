@@ -106,9 +106,13 @@ sidebar's icon row instead:
 - **Getting your data in and out** — new accounts can import a bank
   statement CSV instead of typing everything by hand; Headroom picks out a
   current balance and anything that repeats (rent, an EMI, a subscription)
-  and asks you to confirm before saving anything. Going the other way,
-  Worth can export your net worth history as CSV, and any loan can export
-  its full repayment schedule as CSV or a print-ready page.
+  and asks you to confirm before saving anything. That's not a one-time
+  thing — Worth's "Sync statement" re-runs the same reading against an
+  existing account any time, refreshing its balance and picking up any
+  *new* recurring payment, while leaving whatever's already tracked alone.
+  Going the other way, Worth can export your net worth history as CSV, and
+  any loan can export its full repayment schedule as CSV or a print-ready
+  page.
 - **Daily email alerts** — if something needs attention (a projected
   shortfall, a loan payment that looks unpaid, a balance gone stale) and
   you haven't opened the app, Headroom can email you once a day. Silent on
@@ -139,7 +143,7 @@ lib/
   repositories/       thin Prisma query wrappers, one per model
   validation/         Zod schemas, one per form/entity
   export/              pure CSV formatters, consumed by the api/export route handlers
-  import/               statement CSV parsing + recurring-payment detection, onboarding only
+  import/               statement CSV parsing + recurring-payment detection, used by onboarding and Worth's statement sync alike
   email/                digest email content + the Resend send wrapper
   auth/                 TOTP and backup-code logic, consumed by auth-service.ts
   ai/                    Ask's Anthropic client, system prompt, and tool definitions
@@ -231,6 +235,11 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   and amount — a one-off UPI payment or ATM withdrawal never matches
   twice, so it's never suggested. The uploaded file is parsed in memory
   for the one request and never stored. (`lib/import/`)
+- **Re-syncing a statement matches existing commitments by name, not
+  amount.** A rent increase or a SIP top-up between syncs is exactly the
+  kind of amount drift this needs to tolerate, not flag as a new payment —
+  so `excludeAlreadyTrackedCommitments` keys on direction + name only.
+  (`lib/import/detect-commitments.ts`)
 - **Individual + joint net worth always equals the combined total
   exactly.** `Liability` carries `isJoint` alongside `Account` and
   `Asset` — a joint home loan deducted entirely from an "individual"
