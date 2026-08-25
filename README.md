@@ -64,7 +64,7 @@ demo@headroom.app / headroom-demo
 | `npm test`            | Unit and integration tests (Vitest).                             |
 | `npm run test:watch`  | Vitest in watch mode.                                            |
 | `npm run test:e2e`    | End-to-end smoke test (Playwright, builds and boots the app).    |
-| `npm run db:seed`     | Seed a representative demo household.                            |
+| `npm run db:seed`     | Seed a representative demo user.                                 |
 
 ## What it does
 
