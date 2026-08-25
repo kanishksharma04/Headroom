@@ -177,7 +177,7 @@ lib/
   money.ts, dates.ts, format-*.ts   shared primitives
 prisma/
   schema.prisma       the domain model
-  seed.ts             demo household generator
+  seed.ts             demo user generator
 e2e/                  Playwright smoke test
 ```
 
