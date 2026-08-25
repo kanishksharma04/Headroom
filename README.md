@@ -394,7 +394,6 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   just a different layout of data already on screen elsewhere.
   (`app/(app)/worth/statement/page.tsx`)
 
-
 ## Money rules
 
 These are non-negotiable and enforced throughout the codebase:
