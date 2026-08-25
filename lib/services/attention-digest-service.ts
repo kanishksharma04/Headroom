@@ -1,10 +1,9 @@
 import { findAllUsers } from "@/lib/repositories/user-repository";
 import { getTodayOverviewForUser } from "@/lib/services/headroom-service";
-import { listPushSubscriptionsForUser, unsubscribeFromPush } from "@/lib/services/push-subscription-service";
 import { buildAttentionDigestEmail } from "@/lib/email/attention-digest";
 import { sendEmail } from "@/lib/email/send-email";
-import { sendPushNotification } from "@/lib/push/send-push";
-import type { AttentionItem } from "@/lib/engines/attention";
+import { pushToAllDevices } from "@/lib/push/push-to-all-devices";
+import { resolveAppUrl } from "@/lib/app-url";
 
 export type AttentionDigestResult = {
   userId: string;
@@ -12,43 +11,6 @@ export type AttentionDigestResult = {
   sent: boolean;
   pushedDeviceCount: number;
 };
-
-/**
- * Pushes to every device the user has subscribed, in parallel — each
- * device is independent, so one slow or dead endpoint shouldn't hold up
- * the others. A subscription the push service reports as expired
- * (410/404) is deleted immediately rather than retried on a future run.
- */
-async function pushToAllDevices(
-  userId: string,
-  items: AttentionItem[],
-  appUrl: string,
-): Promise<number> {
-  const subscriptions = await listPushSubscriptionsForUser(userId);
-  if (subscriptions.length === 0) {
-    return 0;
-  }
-
-  const title =
-    items.length === 1 ? "Headroom: 1 thing needs your attention" : `Headroom: ${items.length} things need your attention`;
-  const body = items[0].message;
-
-  const results = await Promise.all(
-    subscriptions.map(async (subscription) => {
-      const result = await sendPushNotification(subscription, { title, body, url: `${appUrl}/today` });
-      if (result.expired) {
-        await unsubscribeFromPush(subscription.endpoint);
-      }
-      return result.sent;
-    }),
-  );
-
-  return results.filter(Boolean).length;
-}
-
-function resolveAppUrl(): string {
-  return (process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-}
 
 /**
  * Sends one user their daily attention digest — only if they actually have
@@ -70,9 +32,13 @@ export async function sendAttentionDigestForUser(
 
   const appUrl = resolveAppUrl();
   const { subject, html, text } = buildAttentionDigestEmail(user.name, attentionItems, appUrl);
+  const pushTitle =
+    attentionItems.length === 1
+      ? "Headroom: 1 thing needs your attention"
+      : `Headroom: ${attentionItems.length} things need your attention`;
   const [{ sent }, pushedDeviceCount] = await Promise.all([
     sendEmail({ to: user.email, subject, html, text }),
-    pushToAllDevices(user.id, attentionItems, appUrl),
+    pushToAllDevices(user.id, pushTitle, attentionItems[0].message, `${appUrl}/today`),
   ]);
 
   return { userId: user.id, itemCount: attentionItems.length, sent, pushedDeviceCount };

@@ -17,6 +17,10 @@ export function findAllUsers(): Promise<User[]> {
   return prisma.user.findMany();
 }
 
+export function findUsersWithWeeklySummaryEnabled(): Promise<User[]> {
+  return prisma.user.findMany({ where: { weeklyAskSummaryEnabled: true } });
+}
+
 export function updateUser(id: string, data: Prisma.UserUpdateInput): Promise<User> {
   return prisma.user.update({ where: { id }, data });
 }

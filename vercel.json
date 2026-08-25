@@ -3,5 +3,8 @@
   "framework": "nextjs",
   "regions": ["bom1"],
   "buildCommand": "prisma generate && prisma migrate deploy && next build",
-  "crons": [{ "path": "/api/cron/attention-digest", "schedule": "30 0 * * *" }]
+  "crons": [
+    { "path": "/api/cron/attention-digest", "schedule": "30 0 * * *" },
+    { "path": "/api/cron/weekly-ask-summary", "schedule": "0 3 * * 1" }
+  ]
 }

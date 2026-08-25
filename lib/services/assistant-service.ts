@@ -34,22 +34,13 @@ async function assertUnderDailyCap(userId: string): Promise<void> {
 }
 
 /**
- * Answers one turn of the user's single ongoing Ask conversation: persists
- * the user's message, replays recent history plus a bounded tool-use loop
- * against Claude, persists and returns the final reply. Every tool call is
- * scoped to `userId` — nothing in a tool's arguments can name a different
- * user's data.
+ * Drives the bounded tool-use loop against Claude for one turn, given the
+ * message list to send (already including the new turn's prompt). Shared
+ * by both the interactive `askAssistant` and the scheduled
+ * `generateWeeklySummary` — everything about grounding, tool dispatch and
+ * round budgeting lives here exactly once.
  */
-export async function askAssistant(userId: string, userMessage: string): Promise<string> {
-  await assertUnderDailyCap(userId);
-  await createAssistantMessage(userId, "USER", userMessage);
-
-  const recent = await findRecentAssistantMessagesByUserId(userId, HISTORY_REPLAY_LIMIT);
-  const messages: Anthropic.MessageParam[] = recent.map((m) => ({
-    role: m.role === "USER" ? "user" : "assistant",
-    content: m.content,
-  }));
-
+async function runToolLoop(userId: string, messages: Anthropic.MessageParam[]): Promise<string> {
   const client = getClient();
   if (!client) {
     throw new Error("Ask is not configured.");
@@ -96,7 +87,47 @@ export async function askAssistant(userId: string, userMessage: string): Promise
   if (!finalText) {
     finalText = "I wasn't able to finish that within the tool budget for this turn — try asking again, more specifically.";
   }
+  return finalText;
+}
 
+/**
+ * Answers one turn of the user's single ongoing Ask conversation: persists
+ * the user's message, replays recent history plus a bounded tool-use loop
+ * against Claude, persists and returns the final reply. Every tool call is
+ * scoped to `userId` — nothing in a tool's arguments can name a different
+ * user's data.
+ */
+export async function askAssistant(userId: string, userMessage: string): Promise<string> {
+  await assertUnderDailyCap(userId);
+  await createAssistantMessage(userId, "USER", userMessage);
+
+  const recent = await findRecentAssistantMessagesByUserId(userId, HISTORY_REPLAY_LIMIT);
+  const messages: Anthropic.MessageParam[] = recent.map((m) => ({
+    role: m.role === "USER" ? "user" : "assistant",
+    content: m.content,
+  }));
+
+  const finalText = await runToolLoop(userId, messages);
+
+  await createAssistantMessage(userId, "ASSISTANT", finalText);
+  return finalText;
+}
+
+const WEEKLY_SUMMARY_PROMPT =
+  "Give me a brief weekly check-in: my current headroom, anything flagged for attention, and whether my goals are on track. Keep it to a short paragraph, not a list of everything you can see.";
+
+/**
+ * Generates the scheduled weekly check-in via the same tool-use loop as an
+ * interactive question, but as its own fresh turn rather than a
+ * continuation of the user's real conversation — a periodic summary
+ * shouldn't be shaped by whatever they last happened to ask about, and it
+ * doesn't count against `askAssistant`'s daily cap, since that budget is
+ * for the user's own usage. Persisted as a normal user/assistant pair so
+ * it shows up naturally in their Ask history.
+ */
+export async function generateWeeklySummary(userId: string): Promise<string> {
+  await createAssistantMessage(userId, "USER", "Weekly check-in");
+  const finalText = await runToolLoop(userId, [{ role: "user", content: WEEKLY_SUMMARY_PROMPT }]);
   await createAssistantMessage(userId, "ASSISTANT", finalText);
   return finalText;
 }

@@ -101,7 +101,10 @@ A seventh, differently-natured screen sits in the same sidebar:
   ₹15L car this year?") and it answers by calling the same read-only tools
   that power Today, Worth, Goals, and Decide. It never invents a number and
   can't create, edit, or delete anything; a daily question limit keeps API
-  cost bounded.
+  cost bounded. Opting into its "Weekly check-in" runs the same tool-use
+  loop on a schedule instead of on demand — a short Monday-morning summary
+  by email (and push, if enabled) — rather than being a separate feature
+  with its own notion of what to say.
 
 A few more things live outside the main navigation, reached from the
 sidebar's icon row instead:
@@ -286,6 +289,18 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   Claude each turn so a long-lived conversation's context doesn't grow
   unboundedly, even though the page itself shows full history.
   (`lib/ai/assistant-tools.ts`, `lib/services/assistant-service.ts`)
+- **The weekly Ask summary is a scheduled turn, not a separate feature.**
+  It calls the exact same tool-use loop `askAssistant` does — refactored
+  out as `runToolLoop` — with a fixed prompt instead of the user's own
+  words, and is persisted as a normal user/assistant message pair (a
+  synthetic "Weekly check-in" turn) so it shows up naturally in Ask's
+  history rather than living in a parallel data model. It deliberately
+  doesn't count against the daily question cap, since that budget exists
+  to bound a user's own usage, not a system-scheduled send, and it starts
+  a fresh turn rather than replaying the user's real conversation, so a
+  periodic check-in never gets shaped by whatever they last happened to
+  ask about. (`lib/services/assistant-service.ts`,
+  `lib/services/weekly-ask-summary-service.ts`)
 - **Sign-in is rate-limited per email, not per IP.** An attacker who
   already has (or is guessing at) one specific account's password cares
   about that account regardless of how many IPs they attempt from — so
@@ -372,13 +387,14 @@ Deploys to [Vercel](https://vercel.com) — see `vercel.json` (Mumbai region;
 the build explicitly runs `prisma generate` before `prisma migrate deploy`,
 rather than relying on Prisma's own install-script to generate the client,
 since Vercel's build image can gate package install scripts; a daily cron
-trigger handles the attention digest). Before the first deploy, set in the project's
+trigger handles the attention digest, a weekly one handles Ask's opt-in
+check-in). Before the first deploy, set in the project's
 environment variables:
 
 - `DATABASE_URL` pointed at a Neon Postgres instance, `AUTH_SECRET`, and
   `AUTH_URL` — all required.
-- `CRON_SECRET` — required, or the digest's cron endpoint stays disabled
-  (it fails closed rather than running unauthenticated).
+- `CRON_SECRET` — required, or both cron endpoints stay disabled (each
+  fails closed rather than running unauthenticated).
 - `RESEND_API_KEY` and `EMAIL_FROM` — optional; without them the app runs
   fine, the digest just never sends.
 - `ANTHROPIC_API_KEY` — optional; without it, `/assistant` shows a
