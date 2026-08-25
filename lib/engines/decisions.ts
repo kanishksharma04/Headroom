@@ -669,3 +669,113 @@ export function jobLossRunway(input: JobLossRunwayInput): JobLossRunwayResult {
     ],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Refinance comparison
+// ---------------------------------------------------------------------------
+
+export type RefinanceInput = {
+  liability: {
+    outstandingPrincipal: Decimal.Value;
+    annualRatePercent: Decimal.Value;
+    remainingTenureMonths: number;
+    /** The next EMI due date — both schedules are modelled from here. */
+    firstDueDate: Date;
+    prepaymentPenaltyPercent?: Decimal.Value;
+    isSelfOccupied: boolean;
+  };
+  /** The rate the new lender is offering. */
+  newAnnualRatePercent: Decimal.Value;
+  /** The new lender's processing fee, as a percentage of the transferred principal. */
+  newLoanProcessingFeePercent: Decimal.Value;
+  taxProfile: TaxProfile;
+};
+
+export type RefinanceResult = {
+  currentTotalInterest: Money;
+  newTotalInterest: Money;
+  /** currentTotalInterest − newTotalInterest. Negative when the new rate is actually worse. */
+  interestSaved: Money;
+  currentEmi: Money;
+  newEmi: Money;
+  /** currentEmi − newEmi. Positive means lower monthly outgo under the new loan. */
+  emiDelta: Money;
+  /** Foreclosing the current loan, at its own prepaymentPenaltyPercent. */
+  foreclosurePenalty: Money;
+  /** The new lender's processing fee. */
+  processingFee: Money;
+  /** foreclosurePenalty + processingFee — the one-time cost of switching. */
+  switchingCosts: Money;
+  /** The value of the Section 24(b) deduction given up because less interest will be paid. Zero under the New regime. */
+  lostDeductionValue: Money;
+  /** interestSaved − switchingCosts − lostDeductionValue. */
+  netBenefit: Money;
+  /** Months of emiDelta needed to recoup switchingCosts. Null when emiDelta isn't positive — there's no monthly saving to recoup it with. */
+  breakEvenMonths: number | null;
+  assumptions: string[];
+};
+
+/**
+ * Compares staying on a loan against refinancing its full outstanding
+ * balance elsewhere at a different rate — both branches use the same
+ * principal and remaining tenure, so the comparison isolates the rate's
+ * effect rather than mixing in a tenure change too. Presents both;
+ * recommends neither.
+ */
+export function compareRefinance(input: RefinanceInput): RefinanceResult {
+  const { liability, newAnnualRatePercent, newLoanProcessingFeePercent, taxProfile } = input;
+
+  const baseAmortisationInput = {
+    principal: liability.outstandingPrincipal,
+    annualRatePercent: liability.annualRatePercent,
+    tenureMonths: liability.remainingTenureMonths,
+    firstDueDate: liability.firstDueDate,
+  };
+  const currentSchedule = generateAmortisationSchedule(baseAmortisationInput);
+  const newSchedule = generateAmortisationSchedule({
+    ...baseAmortisationInput,
+    annualRatePercent: newAnnualRatePercent,
+  });
+
+  const interestSaved = currentSchedule.totalInterest.minus(newSchedule.totalInterest);
+  const emiDelta = currentSchedule.emi.minus(newSchedule.emi);
+
+  const foreclosurePenalty = liability.prepaymentPenaltyPercent
+    ? toMoney(liability.outstandingPrincipal).times(liability.prepaymentPenaltyPercent).div(100)
+    : toMoney(0);
+  const processingFee = toMoney(liability.outstandingPrincipal).times(newLoanProcessingFeePercent).div(100);
+  const switchingCosts = foreclosurePenalty.plus(processingFee);
+
+  const lostDeductionValue =
+    taxProfile.regime === "OLD"
+      ? totalYearlyDeductibleInterest(currentSchedule.periods, liability.isSelfOccupied)
+          .minus(totalYearlyDeductibleInterest(newSchedule.periods, liability.isSelfOccupied))
+          .times(toMoney(taxProfile.taxSlabPercent))
+          .div(100)
+      : toMoney(0);
+
+  const netBenefit = interestSaved.minus(switchingCosts).minus(lostDeductionValue);
+  const breakEvenMonths = emiDelta.gt(0) ? switchingCosts.div(emiDelta).ceil().toNumber() : null;
+
+  return {
+    currentTotalInterest: currentSchedule.totalInterest,
+    newTotalInterest: newSchedule.totalInterest,
+    interestSaved,
+    currentEmi: currentSchedule.emi,
+    newEmi: newSchedule.emi,
+    emiDelta,
+    foreclosurePenalty,
+    processingFee,
+    switchingCosts,
+    lostDeductionValue,
+    netBenefit,
+    breakEvenMonths,
+    assumptions: [
+      "Assumes the new loan carries the same outstanding principal and remaining tenure as the current one — only the rate changes.",
+      "The foreclosure penalty and processing fee are assumed paid upfront, in cash, not added to the new loan's principal.",
+      taxProfile.regime === "OLD"
+        ? "Lost Section 24(b) deduction value is estimated at your tax slab rate, applied to the reduction in each financial year's deductible interest."
+        : "No Section 24(b) adjustment applies under the New regime.",
+    ],
+  };
+}

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   checkAffordability,
+  compareRefinance,
   deriveRemainingScheduleParams,
   incomeChangeImpact,
   jobLossRunway,
   prepayVsInvest,
   projectedInvestmentValue,
 } from "@/lib/engines/decisions";
+import { calculateEmi, generateAmortisationSchedule } from "@/lib/engines/amortisation";
 import type { HeadroomCommitmentInput } from "@/lib/engines/headroom";
 import { getIstParts, istDate } from "@/lib/dates";
 
@@ -511,5 +513,110 @@ describe("jobLossRunway", () => {
     });
     expect(result.emergencyFundCoverageMonths.toFixed(2)).toBe("0.00");
     expect(result.meetsEmergencyFundTarget).toBe(false);
+  });
+});
+
+describe("compareRefinance", () => {
+  const liability = {
+    outstandingPrincipal: "1000000",
+    annualRatePercent: "9",
+    remainingTenureMonths: 60,
+    firstDueDate: istDate(2026, 0, 5),
+    isSelfOccupied: true,
+  };
+  const input = {
+    liability,
+    newAnnualRatePercent: "8",
+    newLoanProcessingFeePercent: "0.5",
+    taxProfile: { regime: "OLD" as const, taxSlabPercent: "30" },
+  };
+
+  it("EMI and total interest for both branches match the amortisation engine directly", () => {
+    const result = compareRefinance(input);
+
+    expect(result.currentEmi.toFixed(2)).toBe(
+      calculateEmi(liability.outstandingPrincipal, liability.annualRatePercent, liability.remainingTenureMonths).toFixed(2),
+    );
+    expect(result.newEmi.toFixed(2)).toBe(
+      calculateEmi(liability.outstandingPrincipal, input.newAnnualRatePercent, liability.remainingTenureMonths).toFixed(2),
+    );
+
+    const currentSchedule = generateAmortisationSchedule({
+      principal: liability.outstandingPrincipal,
+      annualRatePercent: liability.annualRatePercent,
+      tenureMonths: liability.remainingTenureMonths,
+      firstDueDate: liability.firstDueDate,
+    });
+    const newSchedule = generateAmortisationSchedule({
+      principal: liability.outstandingPrincipal,
+      annualRatePercent: input.newAnnualRatePercent,
+      tenureMonths: liability.remainingTenureMonths,
+      firstDueDate: liability.firstDueDate,
+    });
+    expect(result.currentTotalInterest.toFixed(2)).toBe(currentSchedule.totalInterest.toFixed(2));
+    expect(result.newTotalInterest.toFixed(2)).toBe(newSchedule.totalInterest.toFixed(2));
+    expect(result.interestSaved.toFixed(2)).toBe(
+      currentSchedule.totalInterest.minus(newSchedule.totalInterest).toFixed(2),
+    );
+  });
+
+  it("a genuinely lower rate produces positive interest and EMI savings", () => {
+    const result = compareRefinance(input);
+    expect(result.interestSaved.greaterThan(0)).toBe(true);
+    expect(result.emiDelta.greaterThan(0)).toBe(true);
+    expect(result.currentEmi.greaterThan(result.newEmi)).toBe(true);
+  });
+
+  it("switching costs are exact percentages of the outstanding principal — ₹10L at 2% + 0.5%", () => {
+    const result = compareRefinance({
+      ...input,
+      liability: { ...liability, prepaymentPenaltyPercent: "2" },
+    });
+    expect(result.foreclosurePenalty.toFixed(2)).toBe("20000.00");
+    expect(result.processingFee.toFixed(2)).toBe("5000.00");
+    expect(result.switchingCosts.toFixed(2)).toBe("25000.00");
+  });
+
+  it("no prepaymentPenaltyPercent on the liability means zero foreclosure penalty", () => {
+    const result = compareRefinance(input);
+    expect(result.foreclosurePenalty.toFixed(2)).toBe("0.00");
+    expect(result.switchingCosts.toFixed(2)).toBe(result.processingFee.toFixed(2));
+  });
+
+  it("net benefit is exactly interestSaved minus switchingCosts minus lostDeductionValue", () => {
+    const result = compareRefinance({
+      ...input,
+      liability: { ...liability, prepaymentPenaltyPercent: "1" },
+    });
+    const expectedNet = result.interestSaved.minus(result.switchingCosts).minus(result.lostDeductionValue);
+    expect(result.netBenefit.toFixed(2)).toBe(expectedNet.toFixed(2));
+  });
+
+  it("break-even months is the ceiling of switchingCosts / emiDelta", () => {
+    const result = compareRefinance({
+      ...input,
+      liability: { ...liability, prepaymentPenaltyPercent: "1" },
+    });
+    expect(result.breakEvenMonths).toBe(Math.ceil(result.switchingCosts.div(result.emiDelta).toNumber()));
+  });
+
+  it("break-even is null when the new rate isn't actually better", () => {
+    const result = compareRefinance({ ...input, newAnnualRatePercent: "9.5" });
+    expect(result.emiDelta.greaterThan(0)).toBe(false);
+    expect(result.breakEvenMonths).toBeNull();
+    expect(result.interestSaved.lessThan(0)).toBe(true);
+  });
+
+  it("under the New regime, there is no lost Section 24(b) deduction", () => {
+    const result = compareRefinance({
+      ...input,
+      taxProfile: { regime: "NEW", taxSlabPercent: "30" },
+    });
+    expect(result.lostDeductionValue.toFixed(2)).toBe("0.00");
+  });
+
+  it("under the Old regime, a real interest reduction produces a nonzero lost deduction", () => {
+    const result = compareRefinance(input);
+    expect(result.lostDeductionValue.greaterThan(0)).toBe(true);
   });
 });

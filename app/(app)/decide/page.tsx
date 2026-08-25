@@ -7,6 +7,7 @@ import { listLiabilitiesForUser } from "@/lib/services/liability-service";
 import { listScenariosForUser } from "@/lib/services/scenario-service";
 import { formatLongDate } from "@/lib/format-date";
 import { PrepayVsInvestTool, type LiabilityOption } from "@/components/decide/prepay-vs-invest-tool";
+import { RefinanceTool } from "@/components/decide/refinance-tool";
 import { AffordabilityTool } from "@/components/decide/affordability-tool";
 import { IncomeChangeTool } from "@/components/decide/income-change-tool";
 import { JobLossTool } from "@/components/decide/job-loss-tool";
@@ -127,6 +128,27 @@ export default async function DecidePage({
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Should I refinance a loan?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {liabilityOptions.length === 0 ? (
+            <EmptyState
+              title="Add a loan to run this"
+              description="Once you add a loan on Worth, you can compare it against a rate another lender is offering."
+              action={
+                <Button render={<Link href="/worth" />} nativeButton={false}>
+                  Add a loan
+                </Button>
+              }
+            />
+          ) : (
+            <RefinanceTool liabilities={liabilityOptions} />
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

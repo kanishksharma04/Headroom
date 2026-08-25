@@ -6,6 +6,7 @@ import {
   prepayVsInvestScenarioSchema,
   affordabilityCheckSchema,
   incomeChangeCheckSchema,
+  refinanceCheckSchema,
 } from "@/lib/validation/scenario";
 import {
   removeScenarioForUser,
@@ -23,6 +24,7 @@ import {
   checkAffordability,
   incomeChangeImpact,
   jobLossRunway,
+  compareRefinance,
 } from "@/lib/engines/decisions";
 
 export type FormState = { error?: string };
@@ -273,6 +275,80 @@ export async function checkJobLossRunwayAction(): Promise<JobLossFormState> {
       depletionDate: result.depletionDate ? result.depletionDate.toISOString() : null,
       emergencyFundCoverageMonths: result.emergencyFundCoverageMonths.toFixed(1),
       meetsEmergencyFundTarget: result.meetsEmergencyFundTarget,
+      assumptions: result.assumptions,
+    },
+  };
+}
+
+export type RefinanceResultView = {
+  currentEmi: string;
+  newEmi: string;
+  emiDelta: string;
+  currentTotalInterest: string;
+  newTotalInterest: string;
+  interestSaved: string;
+  foreclosurePenalty: string;
+  processingFee: string;
+  switchingCosts: string;
+  lostDeductionValue: string;
+  netBenefit: string;
+  breakEvenMonths: number | null;
+  assumptions: string[];
+};
+
+export type RefinanceFormState = { error?: string; result?: RefinanceResultView };
+
+export async function checkRefinanceAction(
+  _prevState: RefinanceFormState,
+  formData: FormData,
+): Promise<RefinanceFormState> {
+  const userId = await requireUserId();
+  const parsed = refinanceCheckSchema.safeParse({
+    liabilityId: formData.get("liabilityId"),
+    newAnnualRatePercent: formData.get("newAnnualRatePercent"),
+    newLoanProcessingFeePercent: formData.get("newLoanProcessingFeePercent"),
+  });
+  if (!parsed.success) {
+    return { error: firstIssueMessage(parsed.error) };
+  }
+
+  const [liability, user] = await Promise.all([
+    requireOwnedLiabilityForScenario(userId, parsed.data.liabilityId),
+    findUserById(userId),
+  ]);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  const { remainingTenureMonths, firstDueDate } = deriveRemainingScheduleParams(liability, new Date());
+  const result = compareRefinance({
+    liability: {
+      outstandingPrincipal: liability.outstandingPrincipal,
+      annualRatePercent: liability.annualInterestRatePercent,
+      remainingTenureMonths,
+      firstDueDate,
+      prepaymentPenaltyPercent: liability.prepaymentPenaltyPercent ?? undefined,
+      isSelfOccupied: liability.isSelfOccupied,
+    },
+    newAnnualRatePercent: parsed.data.newAnnualRatePercent,
+    newLoanProcessingFeePercent: parsed.data.newLoanProcessingFeePercent,
+    taxProfile: { regime: user.taxRegime, taxSlabPercent: user.taxSlabPercent },
+  });
+
+  return {
+    result: {
+      currentEmi: result.currentEmi.toFixed(2),
+      newEmi: result.newEmi.toFixed(2),
+      emiDelta: result.emiDelta.toFixed(2),
+      currentTotalInterest: result.currentTotalInterest.toFixed(2),
+      newTotalInterest: result.newTotalInterest.toFixed(2),
+      interestSaved: result.interestSaved.toFixed(2),
+      foreclosurePenalty: result.foreclosurePenalty.toFixed(2),
+      processingFee: result.processingFee.toFixed(2),
+      switchingCosts: result.switchingCosts.toFixed(2),
+      lostDeductionValue: result.lostDeductionValue.toFixed(2),
+      netBenefit: result.netBenefit.toFixed(2),
+      breakEvenMonths: result.breakEvenMonths,
       assumptions: result.assumptions,
     },
   };

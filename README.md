@@ -79,10 +79,11 @@ Six screens, reached from the sidebar:
 - **Goals** tracks savings goals — a child's education, a house down
   payment — adjusted for inflation, with an honest read on whether your
   current pace actually gets you there on time.
-- **Decide** has four calculators for the big choices: prepay a loan or
-  invest the money instead; can you afford a purchase without wrecking your
-  safety net; what a raise or a pay cut actually does to your finances; and
-  how long your savings would last if your income stopped today.
+- **Decide** has five calculators for the big choices: prepay a loan or
+  invest the money instead; whether refinancing a loan elsewhere actually
+  pays for itself; can you afford a purchase without wrecking your safety
+  net; what a raise or a pay cut actually does to your finances; and how
+  long your savings would last if your income stopped today.
 - **Records** is every account, loan, and recurring payment you've entered,
   in one searchable, editable list — for double-checking the raw numbers
   behind everything else.
@@ -190,10 +191,14 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   amortisation schedules, prepayment simulation (reduce-tenure or
   reduce-EMI), and the Section 24(b) tax-deduction-capped effective
   post-tax cost of debt.
-- **`decisions.ts`** — the Decide screen's four tools: prepay-vs-invest,
-  an affordability check, an income-change model (a raise or a pay cut,
-  shown as a 90-day cash-flow projection), and a job-loss runway (how long
-  your balance lasts with salary stopped and everything else unchanged).
+- **`decisions.ts`** — the Decide screen's five tools: prepay-vs-invest, a
+  refinance comparison (staying on a loan versus moving its full
+  outstanding balance to a new rate elsewhere, net of the old loan's
+  foreclosure penalty, the new lender's processing fee, and any Section
+  24(b) deduction given up), an affordability check, an income-change model
+  (a raise or a pay cut, shown as a 90-day cash-flow projection), and a
+  job-loss runway (how long your balance lasts with salary stopped and
+  everything else unchanged).
 - **`goals.ts`** — evaluates a savings goal against an inflation-adjusted
   target: what your current pace projects to by the target date, the
   monthly contribution that would close any gap, and an on-track / at-risk
