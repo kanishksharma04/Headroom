@@ -60,7 +60,9 @@ demo@headroom.app / headroom-demo
 | `npm run typecheck`   | `tsc --noEmit`.                                                  |
 | `npm run lint`        | ESLint.                                                          |
 | `npm run format`      | Prettier, applied.                                               |
+| `npm run format:check` | Prettier, check-only — no files written.                        |
 | `npm test`            | Unit and integration tests (Vitest).                             |
+| `npm run test:watch`  | Vitest in watch mode.                                            |
 | `npm run test:e2e`    | End-to-end smoke test (Playwright, builds and boots the app).    |
 | `npm run db:seed`     | Seed a representative demo household.                            |
 
