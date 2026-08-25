@@ -38,3 +38,17 @@ export const insuranceAdequacyCheckSchema = z.object({
 });
 
 export type InsuranceAdequacyCheckInput = z.infer<typeof insuranceAdequacyCheckSchema>;
+
+export const retirementCorpusCheckSchema = z
+  .object({
+    currentAge: z.coerce.number().int().min(16).max(100),
+    retirementAge: z.coerce.number().int().min(16).max(100),
+    monthlyRetirementContribution: nonNegativeMoneyStringSchema({ maxDecimalPlaces: 2 }),
+    desiredMonthlyExpenseToday: positiveMoneyStringSchema({ maxDecimalPlaces: 2 }),
+  })
+  .refine((data) => data.retirementAge > data.currentAge, {
+    message: "Retirement age must be after your current age.",
+    path: ["retirementAge"],
+  });
+
+export type RetirementCorpusCheckInput = z.infer<typeof retirementCorpusCheckSchema>;

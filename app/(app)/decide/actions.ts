@@ -8,6 +8,7 @@ import {
   incomeChangeCheckSchema,
   refinanceCheckSchema,
   insuranceAdequacyCheckSchema,
+  retirementCorpusCheckSchema,
 } from "@/lib/validation/scenario";
 import {
   removeScenarioForUser,
@@ -29,8 +30,10 @@ import {
   jobLossRunway,
   compareRefinance,
   assessLifeInsuranceAdequacy,
+  assessRetirementCorpus,
 } from "@/lib/engines/decisions";
 import { evaluateGoal } from "@/lib/engines/goals";
+import { calculateNetWorth } from "@/lib/engines/networth";
 import { sum } from "@/lib/money";
 
 export type FormState = { error?: string };
@@ -429,6 +432,76 @@ export async function checkInsuranceAdequacyAction(
       totalAssets: result.totalAssets.toFixed(2),
       availableResources: result.availableResources.toFixed(2),
       netPosition: result.netPosition.toFixed(2),
+      assumptions: result.assumptions,
+    },
+  };
+}
+
+export type RetirementCorpusResultView = {
+  yearsToRetirement: number;
+  yearsInRetirement: number;
+  currentNetWorth: string;
+  monthlyRetirementContribution: string;
+  projectedCorpusAtRetirement: string;
+  inflationAdjustedMonthlyExpense: string;
+  requiredCorpusAtRetirement: string;
+  corpusPosition: string;
+  requiredMonthlyContribution: string;
+  assumptions: string[];
+};
+
+export type RetirementCorpusFormState = { error?: string; result?: RetirementCorpusResultView };
+
+export async function checkRetirementCorpusAction(
+  _prevState: RetirementCorpusFormState,
+  formData: FormData,
+): Promise<RetirementCorpusFormState> {
+  const userId = await requireUserId();
+  const parsed = retirementCorpusCheckSchema.safeParse({
+    currentAge: formData.get("currentAge"),
+    retirementAge: formData.get("retirementAge"),
+    monthlyRetirementContribution: formData.get("monthlyRetirementContribution"),
+    desiredMonthlyExpenseToday: formData.get("desiredMonthlyExpenseToday"),
+  });
+  if (!parsed.success) {
+    return { error: firstIssueMessage(parsed.error) };
+  }
+
+  const [accounts, assets, liabilities] = await Promise.all([
+    findAccountsByUserId(userId),
+    findAssetsByUserId(userId),
+    findLiabilitiesByUserId(userId),
+  ]);
+  const { netWorth } = calculateNetWorth({
+    accounts: accounts.map((a) => ({ currentBalance: a.currentBalance })),
+    assets: assets.map((a) => ({ currentValue: a.currentValue })),
+    liabilities: liabilities.map((l) => ({ outstandingPrincipal: l.outstandingPrincipal })),
+  });
+
+  let result;
+  try {
+    result = assessRetirementCorpus({
+      currentAge: parsed.data.currentAge,
+      retirementAge: parsed.data.retirementAge,
+      currentNetWorth: netWorth,
+      monthlyRetirementContribution: parsed.data.monthlyRetirementContribution,
+      desiredMonthlyExpenseToday: parsed.data.desiredMonthlyExpenseToday,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not compute this." };
+  }
+
+  return {
+    result: {
+      yearsToRetirement: result.yearsToRetirement,
+      yearsInRetirement: result.yearsInRetirement,
+      currentNetWorth: result.currentNetWorth.toFixed(2),
+      monthlyRetirementContribution: result.monthlyRetirementContribution.toFixed(2),
+      projectedCorpusAtRetirement: result.projectedCorpusAtRetirement.toFixed(2),
+      inflationAdjustedMonthlyExpense: result.inflationAdjustedMonthlyExpense.toFixed(2),
+      requiredCorpusAtRetirement: result.requiredCorpusAtRetirement.toFixed(2),
+      corpusPosition: result.corpusPosition.toFixed(2),
+      requiredMonthlyContribution: result.requiredMonthlyContribution.toFixed(2),
       assumptions: result.assumptions,
     },
   };

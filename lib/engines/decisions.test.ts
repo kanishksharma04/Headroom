@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessLifeInsuranceAdequacy,
+  assessRetirementCorpus,
   checkAffordability,
   compareRefinance,
   deriveRemainingScheduleParams,
@@ -709,5 +710,75 @@ describe("assessLifeInsuranceAdequacy", () => {
         existingCoverage: "0",
       }),
     ).toThrow(/salary commitment/i);
+  });
+});
+
+describe("assessRetirementCorpus", () => {
+  // Every rate zeroed out (accumulation, drawdown, inflation) so both the
+  // accumulation phase and the annuity's real-rate simplification collapse
+  // to plain linear arithmetic — fully hand-verifiable, not just internally
+  // consistent.
+  const zeroRateInput = {
+    currentAge: 30,
+    retirementAge: 60,
+    lifeExpectancy: 80,
+    currentNetWorth: "1000000",
+    monthlyRetirementContribution: "20000",
+    desiredMonthlyExpenseToday: "50000",
+    accumulationReturnPercent: "0",
+    drawdownReturnPercent: "0",
+    inflationPercent: "0",
+  };
+
+  it("at zero rates throughout, every figure reduces to plain linear arithmetic", () => {
+    const result = assessRetirementCorpus(zeroRateInput);
+
+    expect(result.yearsToRetirement).toBe(30);
+    expect(result.yearsInRetirement).toBe(20);
+    // 1,000,000 + 20,000 * 360 months
+    expect(result.projectedCorpusAtRetirement.toFixed(2)).toBe("8200000.00");
+    // No inflation — the retirement-year expense equals today's.
+    expect(result.inflationAdjustedMonthlyExpense.toFixed(2)).toBe("50000.00");
+    // (50000 * 12) * 20 years, real rate zero.
+    expect(result.requiredCorpusAtRetirement.toFixed(2)).toBe("12000000.00");
+    expect(result.corpusPosition.toFixed(2)).toBe("-3800000.00"); // 8,200,000 - 12,000,000
+    // (12,000,000 - 1,000,000) / 360 months, zero-rate contribution formula.
+    expect(result.requiredMonthlyContribution.toFixed(2)).toBe("30555.56");
+  });
+
+  it("a well-funded scenario reports a positive corpus position — a surplus, not a shortfall", () => {
+    const result = assessRetirementCorpus({ ...zeroRateInput, currentNetWorth: "50000000" });
+    expect(result.corpusPosition.greaterThan(0)).toBe(true);
+  });
+
+  it("honours a custom life expectancy", () => {
+    const result = assessRetirementCorpus({ ...zeroRateInput, lifeExpectancy: 90 });
+    expect(result.yearsInRetirement).toBe(30); // 90 - 60
+  });
+
+  it("throws when retirement age isn't after the current age", () => {
+    expect(() => assessRetirementCorpus({ ...zeroRateInput, retirementAge: 30 })).toThrow(/retirement age/i);
+  });
+
+  it("throws when life expectancy isn't after retirement age", () => {
+    expect(() => assessRetirementCorpus({ ...zeroRateInput, lifeExpectancy: 60 })).toThrow(/life expectancy/i);
+  });
+
+  it("a positive real drawdown rate requires a smaller corpus than the zero-rate case, for the same expense", () => {
+    const zeroRate = assessRetirementCorpus(zeroRateInput);
+    const withReturn = assessRetirementCorpus({ ...zeroRateInput, drawdownReturnPercent: "7" });
+    // A corpus earning a real return while being drawn down doesn't need to
+    // be as large to sustain the same withdrawals.
+    expect(withReturn.requiredCorpusAtRetirement.lessThan(zeroRate.requiredCorpusAtRetirement)).toBe(true);
+  });
+
+  it("flags a negative starting net worth explicitly, since it compounds negatively rather than being treated as debt paid off first", () => {
+    const result = assessRetirementCorpus({ ...zeroRateInput, currentNetWorth: "-500000" });
+    expect(result.assumptions.some((a) => a.includes("negative"))).toBe(true);
+  });
+
+  it("does not raise the negative-net-worth caveat when net worth is positive", () => {
+    const result = assessRetirementCorpus(zeroRateInput);
+    expect(result.assumptions.some((a) => a.includes("negative"))).toBe(false);
   });
 });

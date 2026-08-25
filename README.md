@@ -82,13 +82,14 @@ Six screens, reached from the sidebar:
 - **Goals** tracks savings goals — a child's education, a house down
   payment — adjusted for inflation, with an honest read on whether your
   current pace actually gets you there on time.
-- **Decide** has six calculators for the big choices: prepay a loan or
+- **Decide** has seven calculators for the big choices: prepay a loan or
   invest the money instead; whether refinancing a loan elsewhere actually
   pays for itself; can you afford a purchase without wrecking your safety
   net; what a raise or a pay cut actually does to your finances; how long
-  your savings would last if your income stopped today; and whether your
-  life insurance would actually cover your family if you weren't there to
-  keep earning.
+  your savings would last if your income stopped today; whether your life
+  insurance would actually cover your family if you weren't there to keep
+  earning; and whether you're actually on track to retire — a real
+  accumulate-then-drawdown projection, not a flat rule of thumb.
 - **Records** is every account, loan, and recurring payment you've entered,
   in one searchable, editable list — for double-checking the raw numbers
   behind everything else.
@@ -207,16 +208,20 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   amortisation schedules, prepayment simulation (reduce-tenure or
   reduce-EMI), and the Section 24(b) tax-deduction-capped effective
   post-tax cost of debt.
-- **`decisions.ts`** — the Decide screen's six tools: prepay-vs-invest, a
+- **`decisions.ts`** — the Decide screen's seven tools: prepay-vs-invest, a
   refinance comparison (staying on a loan versus moving its full
   outstanding balance to a new rate elsewhere, net of the old loan's
   foreclosure penalty, the new lender's processing fee, and any Section
   24(b) deduction given up), an affordability check, an income-change model
   (a raise or a pay cut, shown as a 90-day cash-flow projection), a
   job-loss runway (how long your balance lasts with salary stopped and
-  everything else unchanged), and a life-insurance adequacy check (income
+  everything else unchanged), a life-insurance adequacy check (income
   replacement plus outstanding debt plus each goal's own shortfall,
-  against what you already hold and own).
+  against what you already hold and own), and a retirement-corpus
+  projection — accumulation to a target corpus (reusing the same
+  compounding `goals.ts` uses for a named goal) followed by a real,
+  inflation-adjusted drawdown over your expected retirement, not a flat
+  "25x expenses" rule.
 - **`goals.ts`** — evaluates a savings goal against an inflation-adjusted
   target: what your current pace projects to by the target date, the
   monthly contribution that would close any gap, and an on-track / at-risk
@@ -303,6 +308,16 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   shortfall (the case worth flagging) is the negative one, matching every
   other signed figure in the app. (`assessLifeInsuranceAdequacy` in
   `lib/engines/decisions.ts`)
+- **The retirement projection says so explicitly when a negative net
+  worth is doing something counterintuitive.** Today's net worth is
+  projected forward as one lump sum, compounding at the accumulation
+  rate — for most people that's straightforward, but if it's negative
+  (typically an unpaid-off loan), compounding makes it *more* negative
+  over time rather than modelling that loan being paid off before
+  retirement, which would understate the real projected corpus. Flagged
+  as an explicit assumption rather than silently producing a
+  technically-correct but easy-to-misread number.
+  (`assessRetirementCorpus` in `lib/engines/decisions.ts`)
 
 ## Money rules
 

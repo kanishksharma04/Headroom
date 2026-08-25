@@ -12,6 +12,7 @@ import { AffordabilityTool } from "@/components/decide/affordability-tool";
 import { IncomeChangeTool } from "@/components/decide/income-change-tool";
 import { JobLossTool } from "@/components/decide/job-loss-tool";
 import { InsuranceAdequacyTool } from "@/components/decide/insurance-adequacy-tool";
+import { RetirementCorpusTool } from "@/components/decide/retirement-corpus-tool";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,6 +185,15 @@ export default async function DecidePage({
         </CardHeader>
         <CardContent>
           <InsuranceAdequacyTool />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Will I actually be able to retire?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RetirementCorpusTool />
         </CardContent>
       </Card>
     </div>

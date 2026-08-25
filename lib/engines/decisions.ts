@@ -26,7 +26,7 @@ import {
   generateOccurrences,
   type CommitmentForOccurrences,
 } from "@/lib/engines/commitments";
-import { monthsToReachTarget } from "@/lib/engines/goals";
+import { monthsToReachTarget, projectGoalAmount, requiredMonthlyContribution as goalRequiredMonthlyContribution } from "@/lib/engines/goals";
 
 // ---------------------------------------------------------------------------
 // Prepay vs invest
@@ -862,6 +862,154 @@ export function assessLifeInsuranceAdequacy(input: LifeInsuranceAdequacyInput): 
       "Debt coverage is every outstanding loan balance on Worth.",
       "Goal coverage is what each of your goals would still be short of its inflation-adjusted target if contributions stopped today — the same shortfall Goals itself reports.",
       "Every account and asset on Worth counts as an available resource, on top of any insurance coverage you already hold — this is about life cover specifically, not health insurance.",
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Retirement corpus
+// ---------------------------------------------------------------------------
+
+const DEFAULT_LIFE_EXPECTANCY = 85;
+const DEFAULT_ACCUMULATION_RETURN_PERCENT = "12";
+const DEFAULT_DRAWDOWN_RETURN_PERCENT = "7";
+const DEFAULT_RETIREMENT_INFLATION_PERCENT = "6";
+
+export type RetirementCorpusInput = {
+  currentAge: number;
+  retirementAge: number;
+  /** Age your corpus needs to last to. Default 85. */
+  lifeExpectancy?: number;
+  /** Today's net worth — the starting balance that compounds toward retirement. */
+  currentNetWorth: Decimal.Value;
+  /** What you're setting aside for retirement each month, from today. */
+  monthlyRetirementContribution: Decimal.Value;
+  /** What you'd want to spend monthly in retirement, in today's rupees. */
+  desiredMonthlyExpenseToday: Decimal.Value;
+  /** Expected annual return while still contributing. Default 12%. */
+  accumulationReturnPercent?: Decimal.Value;
+  /** Expected annual return during retirement itself — typically lower, a more conservative portfolio. Default 7%. */
+  drawdownReturnPercent?: Decimal.Value;
+  /** Default 6%, applied both to the growing corpus target and to withdrawals throughout retirement. */
+  inflationPercent?: Decimal.Value;
+};
+
+export type RetirementCorpusResult = {
+  yearsToRetirement: number;
+  yearsInRetirement: number;
+  currentNetWorth: Money;
+  monthlyRetirementContribution: Money;
+  /** What your current net worth plus monthly contributions compounds to by retirement. */
+  projectedCorpusAtRetirement: Money;
+  /** desiredMonthlyExpenseToday, inflated forward to the rupees you'll actually spend in your first year of retirement. */
+  inflationAdjustedMonthlyExpense: Money;
+  /** The corpus needed at retirement to sustain inflation-adjusted withdrawals for yearsInRetirement, at drawdownReturnPercent. */
+  requiredCorpusAtRetirement: Money;
+  /** projectedCorpusAtRetirement − requiredCorpusAtRetirement. Negative is a real shortfall, matching every other signed figure in the app. */
+  corpusPosition: Money;
+  /** The total monthly contribution (from today's net worth) that would exactly close any gap — compare against monthlyRetirementContribution. */
+  requiredMonthlyContribution: Money;
+  assumptions: string[];
+};
+
+/**
+ * The present value, at the start of retirement, of a growing annuity:
+ * `firstYearAmount` withdrawn annually, growing with inflation each year
+ * to hold its real purchasing power, drawn down over `years` while the
+ * remaining balance keeps earning `nominalReturnPercent`. The standard
+ * real-rate simplification — inflation cancels out of both the
+ * withdrawal's growth and the corpus's discount rate, leaving one clean
+ * annuity formula in real terms — not a rule-of-thumb multiple.
+ */
+function presentValueOfGrowingAnnuity(
+  firstYearAmount: Money,
+  nominalReturnPercent: Decimal.Value,
+  inflationPercent: Decimal.Value,
+  years: number,
+): Money {
+  const nominalRate = toMoney(nominalReturnPercent).div(100);
+  const inflationRate = toMoney(inflationPercent).div(100);
+  const realRate = nominalRate.plus(1).div(inflationRate.plus(1)).minus(1);
+
+  if (realRate.isZero()) {
+    return firstYearAmount.times(years);
+  }
+  const growthFactor = toMoney(1).plus(realRate).pow(-years);
+  return firstYearAmount.times(toMoney(1).minus(growthFactor)).div(realRate);
+}
+
+/**
+ * Whether your current net worth, plus what you're contributing monthly,
+ * will actually sustain your desired lifestyle through retirement —
+ * modelled as accumulation to a target corpus (the same compounding
+ * {@link projectGoalAmount} uses for a named goal) followed by a real,
+ * inflation-adjusted drawdown over your expected remaining years, not a
+ * flat "25x expenses" rule. Presents the numbers; recommends nothing.
+ */
+export function assessRetirementCorpus(input: RetirementCorpusInput): RetirementCorpusResult {
+  const lifeExpectancy = input.lifeExpectancy ?? DEFAULT_LIFE_EXPECTANCY;
+  const accumulationReturnPercent = input.accumulationReturnPercent ?? DEFAULT_ACCUMULATION_RETURN_PERCENT;
+  const drawdownReturnPercent = input.drawdownReturnPercent ?? DEFAULT_DRAWDOWN_RETURN_PERCENT;
+  const inflationPercent = input.inflationPercent ?? DEFAULT_RETIREMENT_INFLATION_PERCENT;
+
+  const yearsToRetirement = input.retirementAge - input.currentAge;
+  const yearsInRetirement = lifeExpectancy - input.retirementAge;
+  if (yearsToRetirement <= 0) {
+    throw new Error("Retirement age must be after your current age.");
+  }
+  if (yearsInRetirement <= 0) {
+    throw new Error("Life expectancy must be after your retirement age.");
+  }
+
+  const currentNetWorth = toMoney(input.currentNetWorth);
+  const monthlyRetirementContribution = toMoney(input.monthlyRetirementContribution);
+  const monthsToRetirement = yearsToRetirement * 12;
+
+  const projectedCorpusAtRetirement = projectGoalAmount(
+    currentNetWorth,
+    monthlyRetirementContribution,
+    accumulationReturnPercent,
+    monthsToRetirement,
+  );
+
+  const inflationAdjustedMonthlyExpense = toMoney(input.desiredMonthlyExpenseToday).times(
+    toMoney(1).plus(toMoney(inflationPercent).div(100)).pow(yearsToRetirement),
+  );
+  const firstYearExpenseInRetirement = inflationAdjustedMonthlyExpense.times(12);
+
+  const requiredCorpusAtRetirement = presentValueOfGrowingAnnuity(
+    firstYearExpenseInRetirement,
+    drawdownReturnPercent,
+    inflationPercent,
+    yearsInRetirement,
+  );
+
+  const corpusPosition = projectedCorpusAtRetirement.minus(requiredCorpusAtRetirement);
+
+  const requiredContribution = goalRequiredMonthlyContribution(
+    currentNetWorth,
+    requiredCorpusAtRetirement,
+    accumulationReturnPercent,
+    monthsToRetirement,
+  );
+
+  return {
+    yearsToRetirement,
+    yearsInRetirement,
+    currentNetWorth,
+    monthlyRetirementContribution,
+    projectedCorpusAtRetirement,
+    inflationAdjustedMonthlyExpense,
+    requiredCorpusAtRetirement,
+    corpusPosition,
+    requiredMonthlyContribution: requiredContribution,
+    assumptions: [
+      `Assumes you live to ${lifeExpectancy} and a ${accumulationReturnPercent}% annual return while still contributing, dropping to ${drawdownReturnPercent}% during retirement itself — a more conservative, lower-risk portfolio once you're drawing on it.`,
+      `Assumes ${inflationPercent}% inflation throughout, applied both to your expenses in retirement and to the withdrawals that follow — the amount you withdraw grows every year to hold its real purchasing power, not a fixed rupee figure.`,
+      "requiredMonthlyContribution is the total monthly amount, from your current net worth, that closes any gap on its own — compare it against monthlyRetirementContribution rather than treating it as an amount to add on top.",
+      currentNetWorth.isNegative()
+        ? "Your current net worth is negative, most likely an outstanding loan — this projects that figure forward as one lump sum compounding at the accumulation rate, without separately modelling that loan being paid off before retirement, which would understate your real projected corpus."
+        : "Your current net worth includes any outstanding loans; it isn't modelled as being paid off separately before retirement.",
     ],
   };
 }
