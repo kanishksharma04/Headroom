@@ -20,8 +20,9 @@ local Postgres for development), npm.
 ```bash
 npm install
 cp .env.example .env   # fill in DATABASE_URL, AUTH_SECRET, AUTH_URL
+npx prisma generate
 npx prisma migrate deploy
-npm run db:seed        # optional — creates a representative demo household
+npm run db:seed        # optional — creates a representative demo user
 npm run dev
 ```
 
