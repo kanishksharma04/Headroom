@@ -7,6 +7,7 @@ const PROTECTED_PREFIXES = [
   "/goals",
   "/decide",
   "/assistant",
+  "/household",
   "/records",
   "/security",
 ];

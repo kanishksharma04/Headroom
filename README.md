@@ -97,7 +97,7 @@ Six screens, reached from the sidebar:
   in one searchable, editable list — for double-checking the raw numbers
   behind everything else.
 
-A seventh, differently-natured screen sits in the same sidebar:
+Two more, differently-natured screens sit in the same sidebar:
 
 - **Ask** is a conversational front end to the six screens above — type a
   question in plain English ("What's my job-loss runway?", "Can I afford a
@@ -108,6 +108,12 @@ A seventh, differently-natured screen sits in the same sidebar:
   loop on a schedule instead of on demand — a short Monday-morning summary
   by email (and push, if enabled) — rather than being a separate feature
   with its own notion of what to say.
+- **Household** links two (or more) accounts by email invite, once both
+  sides agree, into a combined, strictly read-only view of everyone's net
+  worth together. Nobody's own data changes hands or becomes editable by
+  anyone else — every account, asset, and liability still belongs to
+  whoever entered it, exactly as before; a household link only adds a
+  second pair of eyes on a summed-up number.
 
 A few more things live outside the main navigation, reached from the
 sidebar's icon row instead:
@@ -149,8 +155,8 @@ for unit/integration tests, Playwright for the end-to-end smoke test.
 ```
 app/
   (auth)/           sign-in, sign-up
-  (app)/             today, ahead, worth, goals, decide, assistant, records — the seven screens
-                      — plus /security, account management, not an eighth screen
+  (app)/             today, ahead, worth, goals, decide, assistant, household, records — the eight screens
+                      — plus /security, account management, not a ninth screen
   api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
   api/cron/            the attention-digest, price-sync, and weekly-ask-summary cron triggers
   api/assistant/        the Ask chat endpoint
@@ -184,7 +190,9 @@ financial arithmetic happens in a React component or a route handler.
 `Liability` (loans), `Commitment` (a recurring or one-time inflow/outflow —
 salary, rent, EMI, SIP, subscription), `VariableSpendBaseline` (your
 day-to-day spending estimate), `Goal`, `Scenario` (a saved what-if),
-`AssistantMessage` (one row per turn of Ask's single ongoing conversation).
+`AssistantMessage` (one row per turn of Ask's single ongoing conversation),
+`HouseholdInvite` (an email-invited, mutually-accepted read link between two
+users — nothing else about how a `User` owns their own rows changes).
 A `Liability`'s EMI is mirrored into a linked `Commitment` automatically, so
 it never has to be entered twice. `NetWorthSnapshot` captures the full
 balance sheet once per day, on every mutation — it's the only source of
@@ -320,6 +328,25 @@ tested with hand-verified fixtures (see the doc comments at the top of each
   or failure, so "last checked" and "last actually updated" (which
   `lastPriceSyncError` distinguishes) aren't conflated.
   (`lib/market-data/mf-nav-client.ts`, `lib/services/price-sync-service.ts`)
+- **Household is a read-only layer on top of the single-user model, not a
+  migration to one.** Every other table is still scoped by exactly one
+  `userId`, exactly as before; nothing about how a row is owned, queried,
+  or mutated changes. A `HouseholdInvite` only ever grants *read* access,
+  and only once both people have actively agreed (an email invite, then
+  an explicit accept) — there is no partial or implicit sharing state. The
+  one function that decides who can see whose numbers,
+  `getHouseholdPartnersForUser`, is a single, narrow, heavily-tested query
+  (only ACCEPTED links, matched in either direction) that every household
+  read runs through before calling the exact same `getWorthOverviewForUser`
+  each person's own Worth page already uses — so the combined view is
+  provably just "my numbers plus my accepted partners' numbers," never
+  more. The alternative — moving every table to be owned by a household
+  instead of a user — would mean rewriting the ownership check in every
+  service and Ask's per-user data scoping: a change to the app's actual
+  security boundary, not a new feature layered on top of it, and not one
+  to take on without a much slower, more heavily reviewed rollout than
+  anything else in this codebase.
+  (`lib/services/household-service.ts`, `lib/services/household-overview-service.ts`)
 - **Sign-in is rate-limited per email, not per IP.** An attacker who
   already has (or is guessing at) one specific account's password cares
   about that account regardless of how many IPs they attempt from — so

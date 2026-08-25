@@ -116,16 +116,18 @@ model User {
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
 
-  accounts              Account[]
-  assets                Asset[]
-  liabilities           Liability[]
-  commitments           Commitment[]
-  variableSpendBaseline VariableSpendBaseline?
-  goals                 Goal[]
-  scenarios             Scenario[]
-  netWorthSnapshots     NetWorthSnapshot[]
-  assistantMessages     AssistantMessage[]
-  pushSubscriptions     PushSubscription[]
+  accounts                 Account[]
+  assets                   Asset[]
+  liabilities              Liability[]
+  commitments              Commitment[]
+  variableSpendBaseline    VariableSpendBaseline?
+  goals                    Goal[]
+  scenarios                Scenario[]
+  netWorthSnapshots        NetWorthSnapshot[]
+  assistantMessages        AssistantMessage[]
+  pushSubscriptions        PushSubscription[]
+  householdInvitesSent     HouseholdInvite[]      @relation("HouseholdInvitesSent")
+  householdInvitesReceived HouseholdInvite[]      @relation("HouseholdInvitesReceived")
 }
 
 model Account {
@@ -357,4 +359,31 @@ model NetWorthSnapshot {
 
   @@unique([userId, capturedAt])
   @@index([userId])
+}
+
+enum HouseholdInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+/// A read-only household link between two existing users, created by
+/// inviting a partner's account by email. Once ACCEPTED, both users can
+/// see (never edit) a combined household view of each other's full
+/// financial picture — every other table, query, and ownership check in
+/// the app is completely untouched by this model; mutation always stays
+/// scoped to the row's own userId, exactly as before.
+model HouseholdInvite {
+  id            String                @id @default(cuid())
+  inviterUserId String
+  inviter       User                  @relation("HouseholdInvitesSent", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  inviteeUserId String
+  invitee       User                  @relation("HouseholdInvitesReceived", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  status        HouseholdInviteStatus @default(PENDING)
+  createdAt     DateTime              @default(now())
+  respondedAt   DateTime?
+
+  @@index([inviterUserId])
+  @@index([inviteeUserId])
 }
