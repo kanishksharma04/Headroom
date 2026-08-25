@@ -40,6 +40,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local agent/CLI tooling metadata (e.g. `vercel install`'s skill docs) —
+# not part of the app, shouldn't be versioned
+.agents
+.claude
+skills-lock.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
