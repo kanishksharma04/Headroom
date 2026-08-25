@@ -157,13 +157,13 @@ for unit/integration tests, Playwright for the end-to-end smoke test.
 
 ```
 app/
-  (auth)/           sign-in, sign-up
-  (app)/             today, ahead, worth, goals, decide, assistant, household, records — the eight screens
-                      — plus /security, account management, not a ninth screen
-  api/export/         CSV download route handlers (net worth history, a loan's amortisation schedule)
-  api/cron/            the attention-digest, price-sync, and weekly-ask-summary cron triggers
-  api/assistant/        the Ask chat endpoint
-  onboarding/        the one-time minimal setup flow, plus onboarding/import for the CSV path
+  (auth)/         sign-in, sign-up
+  (app)/          today, ahead, worth, goals, decide, assistant, household, records — the eight screens
+                  — plus /security, account management, not a ninth screen
+  api/export/     CSV download route handlers (net worth history, a loan's amortisation schedule)
+  api/cron/       the attention-digest, price-sync, and weekly-ask-summary cron triggers
+  api/assistant/  the Ask chat endpoint
+  onboarding/     the one-time minimal setup flow, plus onboarding/import for the CSV path
 lib/
   engines/           pure functions — every financial calculation lives here
   services/           orchestrates repositories + engines for a use case
